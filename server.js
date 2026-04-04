@@ -23,15 +23,15 @@ function getSaudacao() {
 function getMenu() {
   return getSaudacao() + `! Seja bem-vindo(a). 
 
-Sou *Adenilson Ribeiro*, profissional nas areas de Advocacia, Contabilidade, Pericia e Administracao Judicial.
+Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Perícia e Administração Judicial.
 
-Selecione o servico desejado:
+Selecione o serviço desejado:
 
-1 Advocacia e Consultoria Juridica
+1 Advocacia e Consultoria Jurídica
 2 Contabilidade e Impostos
-3 Pericia Contabil e Judicial
+3 Perícia Contábil e Judicial
 4 IRPF - Imposto de Renda
-5 Certidoes e Documentos
+5 Certidões e Documentos
 6 Agendar Consulta
 7 Falar com Adenilson
 
@@ -39,14 +39,14 @@ Digite o *numero* da opcao ou descreva o que precisa.`;
 }
 
 const RESPONSES = {
-  "1": `*Advocacia e Consultoria Juridica*
+  "1": `*Advocacia e Consultoria Jurídica*
 
-Areas de atuacao:
+Áreas de atuação:
 - Direito Civil e Empresarial
 - Direito Trabalhista
 - Direito Tributario
-- Elaboracao de Contratos e Pareceres
-- Consultoria Juridica Preventiva
+- Elaboração de Contratos e Pareceres
+- Consultoria Jurídica Preventiva
 
 OAB/MG 218.018
 
@@ -55,12 +55,12 @@ _Para voltar ao menu principal, digite_ *menu*`,
 
   "2": `*Contabilidade e Impostos*
 
-Servicos disponiveis:
+Serviços disponíveis:
 - Abertura e Encerramento de Empresas
-- Escrituracao Contabil e Fiscal
-- Balancos e Demonstracoes Financeiras
-- Obrigacoes Acessorias (SPED, DCTF, EFD)
-- Planejamento Tributario
+- Escrituração Contábil e Fiscal
+- Balanços e Demonstrações Financeiras
+- Obrigações Acessórias (SPED, DCTF, EFD)
+- Planejamento Tributário
 - MEI, Simples Nacional, Lucro Presumido e Real
 
 CRC/MG 111.185
@@ -68,50 +68,50 @@ CRC/MG 111.185
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*`,
 
-  "3": `*Pericia Contabil e Judicial*
+  "3": `*Perícia Contábil e Judicial*
 
-Formas de atuacao:
-- Perito Judicial nomeado pelo Juizo
-- Assistente Tecnico das partes
-- Pericia Extrajudicial
-- Elaboracao de Laudos Periciais Contabeis
-- Calculos Judiciais e Trabalhistas
+Formas de atuação:
+- Perito Judicial nomeado pelo Juízo
+- Assistente Técnico das partes
+- Perícia Extrajudicial
+- Elaboração de Laudos Periciais Contábeis
+- Cálculos Judiciais e Trabalhistas
 
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*`,
 
   "4": `*IRPF - Imposto de Renda*
 
-Servicos disponiveis:
-- Declaracao Completa e Simplificada
-- Retificacao de Declaracoes anteriores
-- Regularizacao de Malha Fina
-- Carne-Leao
-- Apuracao de Ganho de Capital
-- Planejamento para a proxima declaracao
+Serviços disponíveis:
+- Declaração Completa e Simplificada
+- Retificação de Declarações anteriores
+- Regularização de Malha Fina
+- Carnê-Leão
+- Apuração de Ganho de Capital
+- Planejamento para a próxima declaração
 
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*`,
 
-  "5": `*Certidoes e Documentos*
+  "5": `*Certidões e Documentos*
 
-Emissao e assessoria:
-- Certidao Negativa de Debitos (CND)
-- Certidao de Regularidade Fiscal
-- Certidao de Regularidade do FGTS
-- Certidoes da Justica Federal e Estadual
-- Documentacao para Licitacoes e Contratos
+Emissão e assessoria:
+- Certidão Negativa de Débitos (CND)
+- Certidão de Regularidade Fiscal
+- Certidão de Regularidade do FGTS
+- Certidões da Justiça Federal e Estadual
+- Documentação para Licitações e Contratos
 
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*`,
 
   "6": `*Agendamento de Consulta*
 
-Para agendar, envie as seguintes informacoes:
+Para agendar, envie as seguintes informações:
 
 - Seu *nome completo*
 - *Assunto* (advocacia, contabilidade, pericia ou IRPF)
-- *Data e horario* de sua preferencia
+- *Data e horario* de sua preferência
 
 *Atendimento:* segunda a sexta, das 8h as 18h
 *Modalidade:* atendimento online (todo o Brasil)
@@ -123,13 +123,13 @@ Assim que receber seus dados, entrarei em contato para confirmar.`,
   "7": `*Atendimento Humano*
 
 Sua mensagem foi encaminhada para *Adenilson Ribeiro*.
-Responderemos o mais breve possivel.
+Responderemos o mais breve possível.
 
 *Horario de atendimento:* segunda a sexta, das 8h as 18h
 *Telefone/WhatsApp:* (37) 98807-5561
 *Site:* www.adenilsonribeiro.top
 
-Agradecemos o seu contato e a sua paciencia.`
+Agradecemos o seu contato e a sua paciência.`
 };
 
 const KEYWORDS = {
@@ -149,13 +149,13 @@ const KEYWORDS = {
 function getFallback() {
   return `Obrigado pela sua mensagem.
 
-Nao consegui identificar o servico desejado. Por favor, digite o *numero* de uma das opcoes abaixo:
+Não consegui identificar o serviço desejado. Por favor, digite o *numero* de uma das opcoes abaixo:
 
-1 Advocacia e Consultoria Juridica
+1 Advocacia e Consultoria Jurídica
 2 Contabilidade e Impostos
-3 Pericia Contabil e Judicial
+3 Perícia Contábil e Judicial
 4 IRPF - Imposto de Renda
-5 Certidoes e Documentos
+5 Certidões e Documentos
 6 Agendar Consulta
 7 Falar com Adenilson
 
@@ -163,7 +163,7 @@ Ou descreva o que precisa com mais detalhes.`;
 }
 
 // ========== INTELIGENCIA ARTIFICIAL (GROQ - GRATUITO) ==========
-const SYSTEM_PROMPT = "Voce e o assistente virtual de Adenilson Ribeiro, profissional nas areas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Pericia Judicial e Extrajudicial, e Administracao Judicial. Regras: Responda sempre em portugues brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (maximo 3 paragrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp). Nao invente informacoes juridicas ou contabeis especificas. Quando o assunto exigir analise detalhada, oriente o cliente a agendar uma consulta. Sempre que possivel, direcione para agendar consulta (opcao 6) ou falar com Adenilson (opcao 7). Horario de atendimento: segunda a sexta, das 8h as 18h. Modalidade: atendimento online (todo o Brasil). Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Nao forneca precos nem valores de honorarios. Se o cliente perguntar algo fora das areas de atuacao, responda educadamente que o escritorio atua nas areas mencionadas e sugira que descreva melhor sua necessidade.";
+const SYSTEM_PROMPT = "Voce e o assistente virtual de Adenilson Ribeiro, profissional nas areas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Pericia Judicial e Extrajudicial, e Administracao Judicial. Regras: Responda sempre em portugues brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (maximo 3 paragrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp). Nao invente informações juridicas ou contabeis especificas. Quando o assunto exigir analise detalhada, oriente o cliente a agendar uma consulta. Sempre que possivel, direcione para agendar consulta (opcao 6) ou falar com Adenilson (opcao 7). Horario de atendimento: segunda a sexta, das 8h as 18h. Modalidade: atendimento online (todo o Brasil). Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Nao forneca precos nem valores de honorarios. Se o cliente perguntar algo fora das areas de atuacao, responda educadamente que o escritorio atua nas areas mencionadas e sugira que descreva melhor sua necessidade.";
 
 const conversationHistory = new Map();
 const HISTORY_TTL = 30 * 60 * 1000;
