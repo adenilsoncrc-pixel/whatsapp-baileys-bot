@@ -114,8 +114,8 @@ Para agendar, envie as seguintes informacoes:
 - *Data e horario* de sua preferencia
 
 *Atendimento:* segunda a sexta, das 8h as 18h
-*Endereco:* Sao Cristovao - MG
-*Telefone:* (37) 98807-5561
+*Modalidade:* atendimento online (todo o Brasil)
+*Telefone/WhatsApp:* (37) 98807-5561
 *Site:* www.adenilsonribeiro.top
 
 Assim que receber seus dados, entrarei em contato para confirmar.`,
@@ -126,7 +126,7 @@ Sua mensagem foi encaminhada para *Adenilson Ribeiro*.
 Responderemos o mais breve possivel.
 
 *Horario de atendimento:* segunda a sexta, das 8h as 18h
-*Telefone:* (37) 98807-5561
+*Telefone/WhatsApp:* (37) 98807-5561
 *Site:* www.adenilsonribeiro.top
 
 Agradecemos o seu contato e a sua paciencia.`
@@ -163,7 +163,7 @@ Ou descreva o que precisa com mais detalhes.`;
 }
 
 // ========== INTELIGENCIA ARTIFICIAL (GROQ - GRATUITO) ==========
-const SYSTEM_PROMPT = "Voce e o assistente virtual de Adenilson Ribeiro, profissional nas areas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Pericia Judicial e Extrajudicial, e Administracao Judicial. Regras: Responda sempre em portugues brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (maximo 3 paragrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp). Nao invente informacoes juridicas ou contabeis especificas. Quando o assunto exigir analise detalhada, oriente o cliente a agendar uma consulta. Sempre que possivel, direcione para agendar consulta (opcao 6) ou falar com Adenilson (opcao 7). Horario de atendimento: segunda a sexta, das 8h as 18h. Endereco: Sao Cristovao - MG. Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Nao forneca precos nem valores de honorarios. Se o cliente perguntar algo fora das areas de atuacao, responda educadamente que o escritorio atua nas areas mencionadas e sugira que descreva melhor sua necessidade.";
+const SYSTEM_PROMPT = "Voce e o assistente virtual de Adenilson Ribeiro, profissional nas areas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Pericia Judicial e Extrajudicial, e Administracao Judicial. Regras: Responda sempre em portugues brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (maximo 3 paragrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp). Nao invente informacoes juridicas ou contabeis especificas. Quando o assunto exigir analise detalhada, oriente o cliente a agendar uma consulta. Sempre que possivel, direcione para agendar consulta (opcao 6) ou falar com Adenilson (opcao 7). Horario de atendimento: segunda a sexta, das 8h as 18h. Modalidade: atendimento online (todo o Brasil). Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Nao forneca precos nem valores de honorarios. Se o cliente perguntar algo fora das areas de atuacao, responda educadamente que o escritorio atua nas areas mencionadas e sugira que descreva melhor sua necessidade.";
 
 const conversationHistory = new Map();
 const HISTORY_TTL = 30 * 60 * 1000;
