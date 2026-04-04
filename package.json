@@ -1,0 +1,17 @@
+{
+  "name": "whatsapp-baileys-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot via Baileys - ADR Contabilidade",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "qrcode": "^1.5.4",
+    "pino": "^9.6.0"
+  }
+}
