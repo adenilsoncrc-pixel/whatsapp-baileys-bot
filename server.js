@@ -338,6 +338,8 @@ var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remet
 const IGNORED_CONTACTS = new Set([
   "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
   "5537999521810@s.whatsapp.net",  // Adenilson pessoal
+  "5537841466460@s.whatsapp.net",  // Juliana (restrito)
+  "5537842641280@s.whatsapp.net",  // Gabriella (restrito)
 ]);
 
 // Comando admin para adicionar/remover contatos ignorados em tempo real
