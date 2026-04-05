@@ -104,7 +104,6 @@ function getSaudacao() {
 // ========== RODAPÉ ==========
 const FOOTER = `
 
-
 📧 contato@adenilsonribeiro.top
 📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
 
@@ -402,6 +401,8 @@ async function startBot() {
 
       var from = msg.key.remoteJid;
       var clean = text.trim().toLowerCase();
+      // Normalizar comandos: remover espaço depois do ! (ex: "! ignorados" → "!ignorados")
+      if (clean.startsWith("!")) clean = "!" + clean.substring(1).trim();
 
       // Permitir comandos admin (!) mesmo de números ignorados
       var isAdmin = (from === "5537999521810@s.whatsapp.net");
@@ -462,7 +463,10 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         }
         if (clean === "!ignorados") {
           var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
-          response = "📋 *Contatos ignorados (" + lista.length + "):*\n\n" + (lista.length > 0 ? lista.join("\n") : "Nenhum contato na lista.");
+          response = "📋 *Contatos ignorados (" + lista.length + "):*
+
+" + (lista.length > 0 ? lista.join("
+") : "Nenhum contato na lista.");
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
@@ -576,7 +580,7 @@ Horário: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }
       }
     }
   });
-}
+    }
 
 // ========== HTTP ==========
 http.createServer(async function(req, res) {
