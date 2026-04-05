@@ -70,7 +70,6 @@ function rateProtocol(from, rating) {
   }
   return null;
 }
-
 function getProtocolStats() {
   var data = loadProtocols();
   var today = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("");
@@ -90,7 +89,7 @@ function getProtocolStats() {
   }
   var avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "--";
   return { total: data.counter, today: todayCount, todayMsgs: totalMsgs, abertos: abertos, encerrados: encerrados, avgRating: avgRating, ratingCount: ratingCount };
-                     }
+}
 
 // ========== SAUDAÇÃO INTELIGENTE ==========
 function getSaudacao() {
@@ -129,7 +128,6 @@ Você também pode fazer perguntas livremente que nossa IA responderá.
 
 _Para encerrar o atendimento, digite_ *0* _ou_ *encerrar*` + FOOTER;
 }
-
 const RESPONSES = {
   "1": `⚖️ *Advocacia e Consultoria Jurídica*
 
@@ -444,7 +442,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
-      }
+        }
 
       // Registrar protocolo
       var proto = getProtocol(from);
@@ -467,14 +465,12 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         }
         if (clean === "!ignorados") {
           var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
-          response = "📋 *Contatos ignorados (" + lista.length + "):*
-
-" + (lista.length > 0 ? lista.join("
-") : "Nenhum contato na lista.");
+          var NL = String.fromCharCode(10);
+          response = "Contatos ignorados (" + lista.length + "):" + NL + NL + (lista.length > 0 ? lista.join(NL) : "Nenhum contato na lista.");
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
-  }
+      }
 
       // Comando admin: relatório de protocolos
       if (clean === "!protocolos" && isAdmin) {
@@ -518,7 +514,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         }
         try { await sock.sendMessage(from, { text: txt }); } catch (e) {}
         continue;
-      }
+  }
 
       // Encerrar protocolo e pedir avaliação
       if (clean === "encerrar" || clean === "finalizar" || clean === "0" || clean === "fechar") {
@@ -592,15 +588,15 @@ http.createServer(async function(req, res) {
   if (url.pathname === "/" || url.pathname === "/qr") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     if (connectionStatus === "connected") {
-      return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e8f5e9}h1{color:#2e7d32}p{font-size:18px}</style></head><body><h1>\u2705 Bot Conectado!</h1><p>O bot est\u00e1 funcionando no WhatsApp.</p><p>(37) 98807-5561</p><p>IA: ' + (GROQ_API_KEY ? "Ativada" : "Desativada") + '</p><script>setTimeout(function(){location.reload()},30000)</script></body></html>');
+      return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e8f5e9}h1{color:#2e7d32}p{font-size:18px}</style></head><body><h1>✅ Bot Conectado!</h1><p>O bot está funcionando no WhatsApp.</p><p>(37) 98807-5561</p><p>IA: ' + (GROQ_API_KEY ? "Ativada" : "Desativada") + '</p><script>setTimeout(function(){location.reload()},30000)</script></body></html>');
     }
     if (latestQR) {
       try {
         var qr = await QRCode.toDataURL(latestQR, { width: 400, margin: 2 });
-        return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar</title><style>body{font-family:Arial;text-align:center;padding:20px;background:#fff3e0}h1{color:#e65100}img{border:3px solid #333;border-radius:10px;margin:20px}</style></head><body><h1>\ud83d\udcf1 Conectar WhatsApp</h1><p><b>Escaneie o QR Code:</b></p><img src="' + qr + '"/><p>WhatsApp Business > Menu > Dispositivos conectados > Conectar</p><script>setTimeout(function(){location.reload()},20000)</script></body></html>');
+        return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar</title><style>body{font-family:Arial;text-align:center;padding:20px;background:#fff3e0}h1{color:#e65100}img{border:3px solid #333;border-radius:10px;margin:20px}</style></head><body><h1>📱 Conectar WhatsApp</h1><p><b>Escaneie o QR Code:</b></p><img src="' + qr + '"/><p>WhatsApp Business > Menu > Dispositivos conectados > Conectar</p><script>setTimeout(function(){location.reload()},20000)</script></body></html>');
       } catch (e) { res.writeHead(500); return res.end("Erro"); }
     }
-    return res.end('<html><head><meta charset="utf-8"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e3f2fd}h1{color:#1565c0}</style></head><body><h1>\u23f3 Aguardando...</h1><p>O QR Code aparecer\u00e1 em instantes.</p><script>setTimeout(function(){location.reload()},5000)</script></body></html>');
+    return res.end('<html><head><meta charset="utf-8"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e3f2fd}h1{color:#1565c0}</style></head><body><h1>⏳ Aguardando...</h1><p>O QR Code aparecerá em instantes.</p><script>setTimeout(function(){location.reload()},5000)</script></body></html>');
   }
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
