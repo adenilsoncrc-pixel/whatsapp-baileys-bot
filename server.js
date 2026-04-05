@@ -328,11 +328,20 @@ var latestQR = null;
 var connectionStatus = "disconnected";
 var sock = null;
 var processed = new Set();
+var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
 
 function wasSeen(id) {
   if (processed.has(id)) return true;
   processed.add(id);
   setTimeout(function() { processed.delete(id); }, 120000);
+  return false;
+}
+
+function isFlood(from) {
+  var now = Date.now();
+  var last = lastResponse.get(from);
+  if (last && (now - last) < 3000) return true; // 3 segundos entre respostas ao mesmo remetente
+  lastResponse.set(from, now);
   return false;
 }
 
@@ -367,6 +376,7 @@ async function startBot() {
       if (msg.key.fromMe || msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.endsWith("@g.us")) continue;
       if (wasSeen(msg.key.id)) continue;
       if (msg.messageTimestamp && (Date.now() / 1000 - msg.messageTimestamp) > 60) continue;
+      if (isFlood(msg.key.remoteJid)) continue;
 
       var text = "";
       if (msg.message) text = msg.message.conversation || (msg.message.extendedTextMessage ? msg.message.extendedTextMessage.text : "") || "";
