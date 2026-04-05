@@ -26,16 +26,49 @@ function saveProtocols(data) {
 function getProtocol(from) {
   var data = loadProtocols();
   var today = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("");
-  if (data.sessions[from] && data.sessions[from].date === today) {
+  // Se já tem sessão aberta hoje e não está encerrada, incrementa
+  if (data.sessions[from] && data.sessions[from].date === today && data.sessions[from].status !== "encerrado") {
     data.sessions[from].msgCount++;
     saveProtocols(data);
     return data.sessions[from];
   }
+  // Se encerrou ou é novo dia, cria novo protocolo
   data.counter++;
   var protocol = today + "-" + String(data.counter).padStart(5, "0");
-  data.sessions[from] = { protocol: protocol, date: today, msgCount: 1, startTime: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) };
+  data.sessions[from] = {
+    protocol: protocol,
+    date: today,
+    msgCount: 1,
+    status: "aberto",
+    startTime: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+    endTime: null,
+    rating: null,
+    feedback: null
+  };
   saveProtocols(data);
   return data.sessions[from];
+}
+
+function closeProtocol(from) {
+  var data = loadProtocols();
+  if (data.sessions[from] && data.sessions[from].status === "aberto") {
+    data.sessions[from].status = "aguardando_avaliacao";
+    saveProtocols(data);
+    return data.sessions[from];
+  }
+  return null;
+}
+
+function rateProtocol(from, rating) {
+  var data = loadProtocols();
+  if (data.sessions[from] && data.sessions[from].status === "aguardando_avaliacao") {
+    data.sessions[from].rating = rating;
+    data.sessions[from].status = "encerrado";
+    data.sessions[from].endTime = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    saveProtocols(data);
+    return data.sessions[from];
+  }
+  return null;
 }
 
 function getProtocolStats() {
@@ -43,11 +76,20 @@ function getProtocolStats() {
   var today = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("");
   var todayCount = 0;
   var totalMsgs = 0;
+  var abertos = 0;
+  var encerrados = 0;
+  var totalRating = 0;
+  var ratingCount = 0;
   var entries = Object.entries(data.sessions);
   for (var i = 0; i < entries.length; i++) {
-    if (entries[i][1].date === today) { todayCount++; totalMsgs += entries[i][1].msgCount; }
+    var s = entries[i][1];
+    if (s.date === today) { todayCount++; totalMsgs += s.msgCount; }
+    if (s.status === "aberto" || s.status === "aguardando_avaliacao") abertos++;
+    if (s.status === "encerrado") encerrados++;
+    if (s.rating) { totalRating += s.rating; ratingCount++; }
   }
-  return { total: data.counter, today: todayCount, todayMsgs: totalMsgs };
+  var avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "--";
+  return { total: data.counter, today: todayCount, todayMsgs: totalMsgs, abertos: abertos, encerrados: encerrados, avgRating: avgRating, ratingCount: ratingCount };
 }
 
 // ========== SAUDAÇÃO INTELIGENTE ==========
@@ -68,7 +110,7 @@ const FOOTER = `
 function getMenu() {
   return getSaudacao() + `! Seja bem-vindo(a). 😊
 
-Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Perícia e Administração Judicial.
+Sou *Adenilson Ribeiro* e este é o meu *Escritório Digital*, com atuação nas áreas de Advocacia, Contabilidade, Perícia, Administração Judicial e Diligências.
 
 📋 *Selecione o serviço desejado:*
 
@@ -79,9 +121,12 @@ Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Pe
 5️⃣ Certidões e Documentos
 6️⃣ Agendar Consulta
 7️⃣ Falar com Adenilson
+8️⃣ Diligências para Empresas e Profissionais
 
 Digite o *número* da opção ou descreva o que precisa.
-Você também pode fazer perguntas livremente que nossa IA responderá.` + FOOTER;
+Você também pode fazer perguntas livremente que nossa IA responderá.
+
+_Para encerrar o atendimento, digite_ *0* _ou_ *encerrar*` + FOOTER;
 }
 
 const RESPONSES = {
@@ -175,7 +220,20 @@ Responderemos o mais breve possível.
 📞 *Telefone:* (37) 98807-5561
 🌐 *Site:* www.adenilsonribeiro.top
 
-Agradecemos o seu contato e a sua paciência.` + FOOTER
+Agradecemos o seu contato e a sua paciência.` + FOOTER,
+
+  "8": `📍 *Diligências para Empresas e Profissionais*
+
+Serviços disponíveis:
+• Diligências em Órgãos Públicos (Receita Federal, INSS, Juntas Comerciais)
+• Protocolo e Acompanhamento de Processos
+• Obtenção de Certidões e Documentos
+• Representação junto a Órgãos Reguladores
+• Diligências Cartórias e Judiciais
+• Atendimento para Empresas e Profissionais de todo o Brasil
+
+_Para agendar, digite_ *6*
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER
 };
 
 const KEYWORDS = {
@@ -187,7 +245,8 @@ const KEYWORDS = {
   irpf: "4", "imposto de renda": "4", declaracao: "4", "declaração": "4", "malha fina": "4",
   certidao: "5", "certidão": "5", cnd: "5", licitacao: "5", "licitação": "5",
   agendar: "6", agendamento: "6", "marcar consulta": "6", "marcar horário": "6",
-  atendente: "7", "falar com adenilson": "7", "falar com alguem": "7", "falar com alguém": "7"
+  atendente: "7", "falar com adenilson": "7", "falar com alguem": "7", "falar com alguém": "7",
+  "diligência": "8", "diligências": "8", diligencia: "8", diligencias: "8"
 };
 
 // ========== RESPOSTA PADRÃO (SEM IA) ==========
@@ -203,12 +262,13 @@ Não consegui identificar o serviço desejado. Por favor, digite o *número* de 
 5️⃣ Certidões e Documentos
 6️⃣ Agendar Consulta
 7️⃣ Falar com Adenilson
+8️⃣ Diligências
 
 Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
-const SYSTEM_PROMPT = "Você é o assistente virtual de Adenilson Ribeiro, profissional nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, e Administração Judicial. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 3 parágrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp). Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente o cliente a agendar uma consulta. Sempre que possível, direcione para agendar consulta (opção 6) ou falar com Adenilson (opção 7). Horário de atendimento: segunda a sexta, das 8h às 18h. Modalidade: atendimento online para todo o Brasil. Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem valores de honorários. Se o cliente perguntar sobre valores, diga que os honorários são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, responda educadamente que o escritório atua nas áreas mencionadas.";
+const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro, profissional nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 3 parágrafos curtos). Use *negrito* para destaques importantes (formato WhatsApp, sempre abrir e fechar com um único asterisco). Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente o cliente a agendar uma consulta. Sempre que possível, direcione para agendar consulta (opção 6) ou falar com Adenilson (opção 7). Horário de atendimento: segunda a sexta, das 8h às 18h. Modalidade: atendimento online para todo o Brasil. Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem valores de honorários. Se o cliente perguntar sobre valores, diga que os honorários são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, responda educadamente que o escritório digital atua nas áreas mencionadas. Ao final de cada resposta, lembre o cliente que pode digitar 0 ou encerrar para finalizar o atendimento e avaliar o serviço.";
 
 const conversationHistory = new Map();
 
@@ -316,19 +376,104 @@ async function startBot() {
       var clean = text.trim().toLowerCase();
       var response = null;
 
+      // Verificar se está aguardando avaliação
+      var dataCheck = loadProtocols();
+      var sessionCheck = dataCheck.sessions[from];
+      if (sessionCheck && sessionCheck.status === "aguardando_avaliacao") {
+        var nota = parseInt(clean);
+        if (nota >= 1 && nota <= 5) {
+          var rated = rateProtocol(from, nota);
+          var estrelas = "⭐".repeat(nota);
+          response = `${estrelas}
+
+✅ *Protocolo ${rated.protocol} encerrado com sucesso.*
+
+Muito obrigado pela sua avaliação! Sua opinião é fundamental para melhorarmos nosso atendimento.
+
+Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        } else {
+          response = `Por favor, digite uma nota de *1* a *5* para avaliar o atendimento:
+
+1️⃣ Péssimo
+2️⃣ Ruim
+3️⃣ Regular
+4️⃣ Bom
+5️⃣ Excelente`;
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        }
+      }
+
       // Registrar protocolo
       var proto = getProtocol(from);
 
       // Comando admin: relatório de protocolos
       if (clean === "!protocolos" && from === "5537988075561@s.whatsapp.net") {
         var stats = getProtocolStats();
-        response = `📊 *Relatório de Protocolos*
+        response = `📊 *Relatório de Protocolos (ISO 9001)*
 
 • Total de atendimentos: ${stats.total}
 • Atendimentos hoje: ${stats.today}
-• Mensagens hoje: ${stats.todayMsgs}`;
+• Mensagens hoje: ${stats.todayMsgs}
+• Protocolos abertos: ${stats.abertos}
+• Protocolos encerrados: ${stats.encerrados}
+• Nota média de satisfação: ${stats.avgRating} (${stats.ratingCount} avaliações)`;
         try { await sock.sendMessage(from, { text: response }); } catch (e) {}
         continue;
+      }
+
+      // Comando admin: relatório de satisfação detalhado
+      if (clean === "!satisfacao" && from === "5537988075561@s.whatsapp.net") {
+        var dataS = loadProtocols();
+        var rated = Object.entries(dataS.sessions).filter(function(e) { return e[1].rating; });
+        var txt = `📊 *Pesquisa de Satisfação (ISO 9001)*
+
+`;
+        if (rated.length === 0) {
+          txt += "Nenhuma avaliação registrada ainda.";
+        } else {
+          var dist = [0,0,0,0,0];
+          for (var r = 0; r < rated.length; r++) { dist[rated[r][1].rating - 1]++; }
+          txt += `Total de avaliações: ${rated.length}
+
+`;
+          txt += `5️⃣ Excelente: ${dist[4]} (${(dist[4]/rated.length*100).toFixed(0)}%)
+`;
+          txt += `4️⃣ Bom: ${dist[3]} (${(dist[3]/rated.length*100).toFixed(0)}%)
+`;
+          txt += `3️⃣ Regular: ${dist[2]} (${(dist[2]/rated.length*100).toFixed(0)}%)
+`;
+          txt += `2️⃣ Ruim: ${dist[1]} (${(dist[1]/rated.length*100).toFixed(0)}%)
+`;
+          txt += `1️⃣ Péssimo: ${dist[0]} (${(dist[0]/rated.length*100).toFixed(0)}%)`;
+        }
+        try { await sock.sendMessage(from, { text: txt }); } catch (e) {}
+        continue;
+      }
+
+      // Encerrar protocolo e pedir avaliação
+      if (clean === "encerrar" || clean === "finalizar" || clean === "0" || clean === "fechar") {
+        var closed = closeProtocol(from);
+        if (closed) {
+          response = `📋 *Protocolo ${closed.protocol}*
+
+⏱️ Início: ${closed.startTime}
+💬 Mensagens trocadas: ${closed.msgCount}
+
+Para encerrar o atendimento, por favor avalie nosso serviço de *1* a *5*:
+
+1️⃣ Péssimo
+2️⃣ Ruim
+3️⃣ Regular
+4️⃣ Bom
+5️⃣ Excelente
+
+Sua avaliação é muito importante para a melhoria contínua dos nossos serviços.`;
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        }
       }
 
       var numKey = clean.replace(/[^0-9]/g, "");
