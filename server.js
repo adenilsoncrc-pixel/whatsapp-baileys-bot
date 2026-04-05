@@ -90,7 +90,7 @@ function getProtocolStats() {
   }
   var avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "--";
   return { total: data.counter, today: todayCount, todayMsgs: totalMsgs, abertos: abertos, encerrados: encerrados, avgRating: avgRating, ratingCount: ratingCount };
-}
+                     }
 
 // ========== SAUDAÇÃO INTELIGENTE ==========
 function getSaudacao() {
@@ -405,7 +405,11 @@ async function startBot() {
       if (clean.startsWith("!")) clean = "!" + clean.substring(1).trim();
 
       // Permitir comandos admin (!) mesmo de números ignorados
-      var isAdmin = (from === "5537999521810@s.whatsapp.net");
+      // Aceitar variações do número pessoal (com/sem 9 extra)
+      var isAdmin = (from === "5537999521810@s.whatsapp.net" || from === "553799952181@s.whatsapp.net" || from === "553799952181@s.whatsapp.net");
+      
+      // Log para debug de comandos admin
+      if (clean.startsWith("!")) { console.log("CMD: from=" + from + " clean=" + clean + " isAdmin=" + isAdmin); }
       var isAdminCmd = isAdmin && clean.startsWith("!");
 
       // Ignorar contatos da lista (parceiros, família, etc.) — exceto comandos admin
@@ -470,7 +474,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
-      }
+  }
 
       // Comando admin: relatório de protocolos
       if (clean === "!protocolos" && isAdmin) {
@@ -580,7 +584,7 @@ Horário: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }
       }
     }
   });
-    }
+            }
 
 // ========== HTTP ==========
 http.createServer(async function(req, res) {
@@ -588,15 +592,15 @@ http.createServer(async function(req, res) {
   if (url.pathname === "/" || url.pathname === "/qr") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     if (connectionStatus === "connected") {
-      return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e8f5e9}h1{color:#2e7d32}p{font-size:18px}</style></head><body><h1>✅ Bot Conectado!</h1><p>O bot está funcionando no WhatsApp.</p><p>(37) 98807-5561</p><p>IA: ' + (GROQ_API_KEY ? "Ativada" : "Desativada") + '</p><script>setTimeout(function(){location.reload()},30000)</script></body></html>');
+      return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e8f5e9}h1{color:#2e7d32}p{font-size:18px}</style></head><body><h1>\u2705 Bot Conectado!</h1><p>O bot est\u00e1 funcionando no WhatsApp.</p><p>(37) 98807-5561</p><p>IA: ' + (GROQ_API_KEY ? "Ativada" : "Desativada") + '</p><script>setTimeout(function(){location.reload()},30000)</script></body></html>');
     }
     if (latestQR) {
       try {
         var qr = await QRCode.toDataURL(latestQR, { width: 400, margin: 2 });
-        return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar</title><style>body{font-family:Arial;text-align:center;padding:20px;background:#fff3e0}h1{color:#e65100}img{border:3px solid #333;border-radius:10px;margin:20px}</style></head><body><h1>📱 Conectar WhatsApp</h1><p><b>Escaneie o QR Code:</b></p><img src="' + qr + '"/><p>WhatsApp Business > Menu > Dispositivos conectados > Conectar</p><script>setTimeout(function(){location.reload()},20000)</script></body></html>');
+        return res.end('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conectar</title><style>body{font-family:Arial;text-align:center;padding:20px;background:#fff3e0}h1{color:#e65100}img{border:3px solid #333;border-radius:10px;margin:20px}</style></head><body><h1>\ud83d\udcf1 Conectar WhatsApp</h1><p><b>Escaneie o QR Code:</b></p><img src="' + qr + '"/><p>WhatsApp Business > Menu > Dispositivos conectados > Conectar</p><script>setTimeout(function(){location.reload()},20000)</script></body></html>');
       } catch (e) { res.writeHead(500); return res.end("Erro"); }
     }
-    return res.end('<html><head><meta charset="utf-8"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e3f2fd}h1{color:#1565c0}</style></head><body><h1>⏳ Aguardando...</h1><p>O QR Code aparecerá em instantes.</p><script>setTimeout(function(){location.reload()},5000)</script></body></html>');
+    return res.end('<html><head><meta charset="utf-8"><title>ADR Bot</title><style>body{font-family:Arial;text-align:center;padding:40px;background:#e3f2fd}h1{color:#1565c0}</style></head><body><h1>\u23f3 Aguardando...</h1><p>O QR Code aparecer\u00e1 em instantes.</p><script>setTimeout(function(){location.reload()},5000)</script></body></html>');
   }
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -608,6 +612,24 @@ http.createServer(async function(req, res) {
     var stats2 = getProtocolStats();
     var data = loadProtocols();
     return res.end(JSON.stringify({ total: stats2.total, hoje: stats2.today, mensagens_hoje: stats2.todayMsgs, sessoes: data.sessions }));
+  }
+  // ========== ADMIN WEB: gerenciar contatos ignorados ==========
+  if (url.pathname === "/admin/ignorados") {
+    var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ total: lista.length, contatos: lista }, null, 2));
+  }
+  if (url.pathname === "/admin/ignorar") {
+    var num = url.searchParams.get("num");
+    if (num) { IGNORED_CONTACTS.add(num.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ ok: true, adicionado: num }));
+  }
+  if (url.pathname === "/admin/designorar") {
+    var num3 = url.searchParams.get("num");
+    if (num3) { IGNORED_CONTACTS.delete(num3.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ ok: true, removido: num3 }));
   }
   if (url.pathname === "/webhook" && req.method === "GET") {
     var p = url.searchParams;
