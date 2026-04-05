@@ -60,19 +60,19 @@ function getSaudacao() {
 }
 
 // ========== RODAPÉ ==========
-const FOOTER = "
+const FOOTER = `
 
-📲 Siga no Instagram: instagram.com/adenilsonribeiro.top";
+📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
 
 // ========== MENU E RESPOSTAS ==========
 function getMenu() {
-  return getSaudacao() + "! Seja bem-vindo(a). 😊
+  return getSaudacao() + `! Seja bem-vindo(a). 😊
 
 Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Perícia e Administração Judicial.
 
 📋 *Selecione o serviço desejado:*
 
-1️⃣ Advocacia e Consultoria Jurídica 
+1️⃣ Advocacia e Consultoria Jurídica
 2️⃣ Contabilidade e Impostos
 3️⃣ Perícia Contábil e Judicial
 4️⃣ IRPF – Imposto de Renda
@@ -81,10 +81,11 @@ Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Pe
 7️⃣ Falar com Adenilson
 
 Digite o *número* da opção ou descreva o que precisa.
-Você também pode fazer perguntas livremente que nossa IA responderá." + FOOTER;
-    }
+Você também pode fazer perguntas livremente que nossa IA responderá.` + FOOTER;
+}
+
 const RESPONSES = {
-  "1": "⚖️ *Advocacia e Consultoria Jurídica*
+  "1": `⚖️ *Advocacia e Consultoria Jurídica*
 
 Áreas de atuação:
 • Direito Civil e Empresarial
@@ -96,9 +97,9 @@ const RESPONSES = {
 📌 OAB/MG 218.018
 
 _Para agendar uma consulta, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*" + FOOTER,
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "2": "📊 *Contabilidade e Impostos*
+  "2": `📊 *Contabilidade e Impostos*
 
 Serviços disponíveis:
 • Abertura e Encerramento de Empresas
@@ -111,9 +112,9 @@ Serviços disponíveis:
 📌 CRC/MG 111.185
 
 _Para agendar, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*" + FOOTER,
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "3": "🔍 *Perícia Contábil e Judicial*
+  "3": `🔍 *Perícia Contábil e Judicial*
 
 Formas de atuação:
 • Perito Judicial nomeado pelo Juízo
@@ -123,9 +124,9 @@ Formas de atuação:
 • Cálculos Judiciais e Trabalhistas
 
 _Para agendar, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*" + FOOTER,
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "4": "💰 *IRPF – Imposto de Renda*
+  "4": `💰 *IRPF – Imposto de Renda*
 
 Serviços disponíveis:
 • Declaração Completa e Simplificada
@@ -136,9 +137,9 @@ Serviços disponíveis:
 • Planejamento para a próxima declaração
 
 _Para agendar, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*" + FOOTER,
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "5": "📄 *Certidões e Documentos*
+  "5": `📄 *Certidões e Documentos*
 
 Emissão e assessoria:
 • Certidão Negativa de Débitos (CND)
@@ -148,9 +149,9 @@ Emissão e assessoria:
 • Documentação para Licitações e Contratos
 
 _Para agendar, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*" + FOOTER,
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "6": "📅 *Agendamento de Consulta*
+  "6": `📅 *Agendamento de Consulta*
 
 Para agendar, envie as seguintes informações:
 
@@ -163,9 +164,9 @@ Para agendar, envie as seguintes informações:
 📞 *Telefone/WhatsApp:* (37) 98807-5561
 🌐 *Site:* www.adenilsonribeiro.top
 
-Assim que receber seus dados, entrarei em contato para confirmar." + FOOTER,
+Assim que receber seus dados, entrarei em contato para confirmar.` + FOOTER,
 
-  "7": "📞 *Atendimento Humano*
+  "7": `📞 *Atendimento Humano*
 
 Sua mensagem foi encaminhada para *Adenilson Ribeiro*.
 Responderemos o mais breve possível.
@@ -174,7 +175,7 @@ Responderemos o mais breve possível.
 📞 *Telefone:* (37) 98807-5561
 🌐 *Site:* www.adenilsonribeiro.top
 
-Agradecemos o seu contato e a sua paciência." + FOOTER
+Agradecemos o seu contato e a sua paciência.` + FOOTER
 };
 
 const KEYWORDS = {
@@ -191,11 +192,11 @@ const KEYWORDS = {
 
 // ========== RESPOSTA PADRÃO (SEM IA) ==========
 function getFallback() {
-  return "Obrigado pela sua mensagem.
+  return `Obrigado pela sua mensagem.
 
 Não consegui identificar o serviço desejado. Por favor, digite o *número* de uma das opções abaixo:
 
-1️⃣ Advocacia e Consultoria Jurídica 
+1️⃣ Advocacia e Consultoria Jurídica
 2️⃣ Contabilidade e Impostos
 3️⃣ Perícia Contábil e Judicial
 4️⃣ IRPF – Imposto de Renda
@@ -203,7 +204,7 @@ Não consegui identificar o serviço desejado. Por favor, digite o *número* de 
 6️⃣ Agendar Consulta
 7️⃣ Falar com Adenilson
 
-Ou descreva o que precisa com mais detalhes." + FOOTER;
+Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
@@ -321,11 +322,11 @@ async function startBot() {
       // Comando admin: relatório de protocolos
       if (clean === "!protocolos" && from === "5537988075561@s.whatsapp.net") {
         var stats = getProtocolStats();
-        response = "📊 *Relatório de Protocolos*
+        response = `📊 *Relatório de Protocolos*
 
-• Total de atendimentos: " + stats.total + "
-• Atendimentos hoje: " + stats.today + "
-• Mensagens hoje: " + stats.todayMsgs;
+• Total de atendimentos: ${stats.total}
+• Atendimentos hoje: ${stats.today}
+• Mensagens hoje: ${stats.todayMsgs}`;
         try { await sock.sendMessage(from, { text: response }); } catch (e) {}
         continue;
       }
@@ -349,9 +350,9 @@ async function startBot() {
 
       // Adicionar protocolo na primeira mensagem do dia
       if (proto.msgCount === 1) {
-        response = "📋 *Protocolo:* " + proto.protocol + "
+        response = `📋 *Protocolo:* ${proto.protocol}
 
-" + response;
+` + response;
       }
 
       try { await sock.sendMessage(from, { text: response }); } catch (e) { console.error("Erro:", e.message); }
@@ -360,18 +361,18 @@ async function startBot() {
         try {
           var cn = from.replace("@s.whatsapp.net", "");
           await sock.sendMessage("5537999521810@s.whatsapp.net", {
-            text: "🔔 *Novo cliente solicitou atendente!*
+            text: `🔔 *Novo cliente solicitou atendente!*
 
-Número: +" + cn + "
-Protocolo: " + proto.protocol + "
-Mensagem: " + text + "
-Horário: " + new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+Número: +${cn}
+Protocolo: ${proto.protocol}
+Mensagem: ${text}
+Horário: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
           });
         } catch (e) {}
       }
     }
   });
-    }
+}
 
 // ========== HTTP ==========
 http.createServer(async function(req, res) {
