@@ -49,6 +49,7 @@ function getProtocolStats() {
   }
   return { total: data.counter, today: todayCount, todayMsgs: totalMsgs };
 }
+
 // ========== SAUDAÇÃO INTELIGENTE ==========
 function getSaudacao() {
   const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
@@ -71,7 +72,7 @@ Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Pe
 
 📋 *Selecione o serviço desejado:*
 
-1️⃣ Advocacia e Consultoria Jurídica
+1️⃣ Advocacia e Consultoria Jurídica 
 2️⃣ Contabilidade e Impostos
 3️⃣ Perícia Contábil e Judicial
 4️⃣ IRPF – Imposto de Renda
@@ -81,8 +82,7 @@ Sou *Adenilson Ribeiro*, profissional nas áreas de Advocacia, Contabilidade, Pe
 
 Digite o *número* da opção ou descreva o que precisa.
 Você também pode fazer perguntas livremente que nossa IA responderá." + FOOTER;
-}
-
+    }
 const RESPONSES = {
   "1": "⚖️ *Advocacia e Consultoria Jurídica*
 
@@ -195,7 +195,7 @@ function getFallback() {
 
 Não consegui identificar o serviço desejado. Por favor, digite o *número* de uma das opções abaixo:
 
-1️⃣ Advocacia e Consultoria Jurídica
+1️⃣ Advocacia e Consultoria Jurídica 
 2️⃣ Contabilidade e Impostos
 3️⃣ Perícia Contábil e Judicial
 4️⃣ IRPF – Imposto de Renda
@@ -371,7 +371,7 @@ Horário: " + new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo"
       }
     }
   });
-}
+    }
 
 // ========== HTTP ==========
 http.createServer(async function(req, res) {
