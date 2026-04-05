@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 const AUTH_DIR = path.join(__dirname, "auth_info");
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const PROTOCOLS_FILE = path.join(__dirname, "protocolos.json");
-
 // ========== SISTEMA DE PROTOCOLOS ==========
 function loadProtocols() {
   try {
@@ -26,13 +25,11 @@ function saveProtocols(data) {
 function getProtocol(from) {
   var data = loadProtocols();
   var today = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("");
-  // Se já tem sessão aberta hoje e não está encerrada, incrementa
   if (data.sessions[from] && data.sessions[from].date === today && data.sessions[from].status !== "encerrado") {
     data.sessions[from].msgCount++;
     saveProtocols(data);
     return data.sessions[from];
   }
-  // Se encerrou ou é novo dia, cria novo protocolo
   data.counter++;
   var protocol = today + "-" + String(data.counter).padStart(5, "0");
   data.sessions[from] = {
@@ -48,7 +45,6 @@ function getProtocol(from) {
   saveProtocols(data);
   return data.sessions[from];
 }
-
 function closeProtocol(from) {
   var data = loadProtocols();
   if (data.sessions[from] && data.sessions[from].status === "aberto") {
@@ -70,7 +66,6 @@ function rateProtocol(from, rating) {
   }
   return null;
 }
-
 function getProtocolStats() {
   var data = loadProtocols();
   var today = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("");
@@ -91,8 +86,7 @@ function getProtocolStats() {
   var avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "--";
   return { total: data.counter, today: todayCount, todayMsgs: totalMsgs, abertos: abertos, encerrados: encerrados, avgRating: avgRating, ratingCount: ratingCount };
 }
-
-// ========== SAUDAÇÃO INTELIGENTE ==========
+// ========== SAUDACAO INTELIGENTE ==========
 function getSaudacao() {
   const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
   const h = parseInt(hora);
@@ -101,12 +95,9 @@ function getSaudacao() {
   return "Boa noite";
 }
 
-// ========== RODAPÉ ==========
-const FOOTER = `
-
-📧 contato@adenilsonribeiro.top
+// ========== RODAPE ==========
+const FOOTER = `📧 contato@adenilsonribeiro.top
 📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
-
 // ========== MENU E RESPOSTAS ==========
 function getMenu() {
   return getSaudacao() + `! Seja bem-vindo(a). 😊
@@ -123,7 +114,6 @@ Sou *Adenilson Ribeiro* e este é o meu *Escritório Digital*, com atuação nas
 6️⃣ Agendar Consulta
 7️⃣ Falar com Adenilson
 8️⃣ Diligências para Empresas e Profissionais
-
 Digite o *número* da opção ou descreva o que precisa.
 Você também pode fazer perguntas livremente que nossa IA responderá.
 
@@ -144,7 +134,6 @@ const RESPONSES = {
 
 _Para agendar uma consulta, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
-
   "2": `📊 *Contabilidade e Impostos*
 
 Serviços disponíveis:
@@ -171,7 +160,6 @@ Formas de atuação:
 
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
-
   "4": `💰 *IRPF – Imposto de Renda*
 
 Serviços disponíveis:
@@ -196,7 +184,6 @@ Emissão e assessoria:
 
 _Para agendar, digite_ *6*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
-
   "6": `📅 *Agendamento de Consulta*
 
 Para agendar, envie as seguintes informações:
@@ -224,7 +211,6 @@ Responderemos o mais breve possível.
 🌐 *Site:* www.adenilsonribeiro.top
 
 Agradecemos o seu contato e a sua paciência.` + FOOTER,
-
   "8": `📍 *Diligências para Empresas e Profissionais*
 
 Serviços disponíveis:
@@ -251,8 +237,7 @@ const KEYWORDS = {
   atendente: "7", "falar com adenilson": "7", "falar com alguem": "7", "falar com alguém": "7",
   "diligência": "8", "diligências": "8", diligencia: "8", diligencias: "8"
 };
-
-// ========== RESPOSTA PADRÃO (SEM IA) ==========
+// ========== RESPOSTA PADRAO (SEM IA) ==========
 function getFallback() {
   return `Obrigado pela sua mensagem.
 
@@ -269,10 +254,8 @@ Não consegui identificar o serviço desejado. Por favor, digite o *número* de 
 
 Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
-
-// ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
+// ========== INTELIGENCIA ARTIFICIAL (GROQ) ==========
 const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) Não invente informações jurídicas ou contábeis específicas. 6) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). 7) NÃO repita a apresentação do escritório em cada mensagem — o cliente já sabe quem somos. 8) Responda a pergunta de forma útil e direta, sem enrolação. 9) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 10) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente sem oferecer serviços. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar algo fora das áreas, diga educadamente que atua nas áreas mencionadas.";
-
 const conversationHistory = new Map();
 
 function getHistory(from) {
@@ -325,27 +308,27 @@ function askAI(userMsg, from) {
     req.end();
   });
 }
-
 // ========== STATE ==========
 var latestQR = null;
 var connectionStatus = "disconnected";
 var sock = null;
 var processed = new Set();
-var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
+var lastResponse = new Map(); // Anti-flood: rastreia ultima resposta por remetente
 
-// ========== LISTA DE CONTATOS IGNORADOS (bot NÃO responde) ==========
-// Adicione números no formato: 55DDDNUMERO@s.whatsapp.net
+// ========== LISTA DE CONTATOS IGNORADOS (bot NAO responde) ==========
+// Adicione numeros no formato: 55DDDNUMERO@s.whatsapp.net
 const IGNORED_CONTACTS = new Set([
   "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
   "5537999521810@s.whatsapp.net",  // Adenilson pessoal
   "5537841466460@s.whatsapp.net",  // Juliana (restrito)
   "5537842641280@s.whatsapp.net",  // Gabriella (restrito)
+  "5537915808260@s.whatsapp.net",  // ALIF Mecânico (pessoal)
 ]);
 
 // Comando admin para adicionar/remover contatos ignorados em tempo real
-// !ignorar 5531999999999 — adiciona
-// !desigmorar 5531999999999 — remove
-// !ignorados — lista todos
+// !ignorar 5531999999999 -- adiciona
+// !desigmorar 5531999999999 -- remove
+// !ignorados -- lista todos
 
 function wasSeen(id) {
   if (processed.has(id)) return true;
@@ -361,7 +344,6 @@ function isFlood(from) {
   lastResponse.set(from, now);
   return false;
 }
-
 // ========== BOT ==========
 async function startBot() {
   var auth = await useMultiFileAuthState(AUTH_DIR);
@@ -395,7 +377,7 @@ async function startBot() {
       if (msg.messageTimestamp && (Date.now() / 1000 - msg.messageTimestamp) > 60) continue;
       if (isFlood(msg.key.remoteJid)) continue;
 
-      // Ignorar contatos da lista (parceiros, família, etc.)
+      // Ignorar contatos da lista (parceiros, familia, etc.)
       if (IGNORED_CONTACTS.has(msg.key.remoteJid)) continue;
 
       var text = "";
@@ -405,8 +387,7 @@ async function startBot() {
       var from = msg.key.remoteJid;
       var clean = text.trim().toLowerCase();
       var response = null;
-
-      // Verificar se está aguardando avaliação
+      // Verificar se esta aguardando avaliacao
       var dataCheck = loadProtocols();
       var sessionCheck = dataCheck.sessions[from];
       if (sessionCheck && sessionCheck.status === "aguardando_avaliacao") {
@@ -457,16 +438,15 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         }
         if (clean === "!ignorados") {
           var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
-          response = `📋 *Contatos ignorados (${lista.length}):*
+          response = "📋 *Contatos ignorados (" + lista.length + "):*
 
-` + (lista.length > 0 ? lista.join("
+" + (lista.length > 0 ? lista.join("
 ") : "Nenhum contato na lista.");
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
       }
-
-      // Comando admin: relatório de protocolos
+      // Comando admin: relatorio de protocolos
       if (clean === "!protocolos" && from === "5537988075561@s.whatsapp.net") {
         var stats = getProtocolStats();
         response = `📊 *Relatório de Protocolos (ISO 9001)*
@@ -481,7 +461,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         continue;
       }
 
-      // Comando admin: relatório de satisfação detalhado
+      // Comando admin: relatorio de satisfacao detalhado
       if (clean === "!satisfacao" && from === "5537988075561@s.whatsapp.net") {
         var dataS = loadProtocols();
         var rated = Object.entries(dataS.sessions).filter(function(e) { return e[1].rating; });
@@ -509,8 +489,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         try { await sock.sendMessage(from, { text: txt }); } catch (e) {}
         continue;
       }
-
-      // Encerrar protocolo e pedir avaliação
+      // Encerrar protocolo e pedir avaliacao
       if (clean === "encerrar" || clean === "finalizar" || clean === "0" || clean === "fechar") {
         var closed = closeProtocol(from);
         if (closed) {
@@ -575,7 +554,6 @@ Horário: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }
     }
   });
 }
-
 // ========== HTTP ==========
 http.createServer(async function(req, res) {
   var url = new URL(req.url, "http://localhost:" + PORT);
