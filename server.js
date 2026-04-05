@@ -92,7 +92,7 @@ function getProtocolStats() {
   return { total: data.counter, today: todayCount, todayMsgs: totalMsgs, abertos: abertos, encerrados: encerrados, avgRating: avgRating, ratingCount: ratingCount };
 }
 
-// ========== SAUDACAO INTELIGENTE ==========
+// ========== SAUDAÇÃO INTELIGENTE ==========
 function getSaudacao() {
   const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
   const h = parseInt(hora);
@@ -101,7 +101,7 @@ function getSaudacao() {
   return "Boa noite";
 }
 
-// ========== RODAPE ==========
+// ========== RODAPÉ ==========
 const FOOTER = `
 
 📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
@@ -249,7 +249,7 @@ const KEYWORDS = {
   "diligência": "8", "diligências": "8", diligencia: "8", diligencias: "8"
 };
 
-// ========== RESPOSTA PADRAO (SEM IA) ==========
+// ========== RESPOSTA PADRÃO (SEM IA) ==========
 function getFallback() {
   return `Obrigado pela sua mensagem.
 
@@ -267,7 +267,7 @@ Não consegui identificar o serviço desejado. Por favor, digite o *número* de 
 Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
-// ========== INTELIGENCIA ARTIFICIAL (GROQ) ==========
+// ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
 const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 2 parágrafos curtos). Use *negrito* para destaques (formato WhatsApp, sempre abrir e fechar com um único asterisco, exemplo: *texto*). Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). Horário: segunda a sexta, 8h às 18h. Prazo de resposta: até 24 horas. Atendimento online para todo o Brasil. Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem honorários — diga que são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, diga educadamente que o escritório atua nas áreas mencionadas.";
 
 const conversationHistory = new Map();
@@ -556,4 +556,13 @@ http.createServer(async function(req, res) {
 }).listen(PORT, function() {
   console.log("Porta " + PORT + " | IA: " + (GROQ_API_KEY ? "ON" : "OFF"));
   startBot();
+
+  // ========== KEEP ALIVE (impedir Render de dormir) ==========
+  setInterval(function() {
+    http.get("http://localhost:" + PORT + "/health", function(res) {
+      var d = "";
+      res.on("data", function(c) { d += c; });
+      res.on("end", function() { console.log("Keep alive: " + d); });
+    }).on("error", function() {});
+  }, 840000); // 14 minutos
 });
