@@ -104,6 +104,7 @@ function getSaudacao() {
 // ========== RODAPÉ ==========
 const FOOTER = `
 
+📧 contato@adenilsonribeiro.top
 📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
 
 // ========== MENU E RESPOSTAS ==========
@@ -207,6 +208,7 @@ Para agendar, envie as seguintes informações:
 🕐 *Atendimento:* segunda a sexta, das 8h às 18h
 💻 *Modalidade:* atendimento online (todo o Brasil)
 📞 *Telefone/WhatsApp:* (37) 98807-5561
+📧 *E-mail:* contato@adenilsonribeiro.top
 🌐 *Site:* www.adenilsonribeiro.top
 
 Assim que receber seus dados, entrarei em contato para confirmar.` + FOOTER,
@@ -218,6 +220,7 @@ Responderemos o mais breve possível.
 
 🕐 *Horário de atendimento:* segunda a sexta, das 8h às 18h
 📞 *Telefone:* (37) 98807-5561
+📧 *E-mail:* contato@adenilsonribeiro.top
 🌐 *Site:* www.adenilsonribeiro.top
 
 Agradecemos o seu contato e a sua paciência.` + FOOTER,
@@ -268,7 +271,7 @@ Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
-const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 2 parágrafos curtos). Use *negrito* para destaques (formato WhatsApp, sempre abrir e fechar com um único asterisco, exemplo: *texto*). Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). Horário: segunda a sexta, 8h às 18h. Prazo de resposta: até 24 horas. Atendimento online para todo o Brasil. Telefone: (37) 98807-5561. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem honorários — diga que são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, diga educadamente que o escritório atua nas áreas mencionadas.";
+const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 2 parágrafos curtos). Use *negrito* para destaques (formato WhatsApp, sempre abrir e fechar com um único asterisco, exemplo: *texto*). Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). Horário: segunda a sexta, 8h às 18h. Prazo de resposta: até 24 horas. Atendimento online para todo o Brasil. Telefone: (37) 98807-5561. E-mail: contato@adenilsonribeiro.top. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem honorários — diga que são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, diga educadamente que o escritório atua nas áreas mencionadas.";
 
 const conversationHistory = new Map();
 
