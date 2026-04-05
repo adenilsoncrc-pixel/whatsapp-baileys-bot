@@ -271,7 +271,7 @@ Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
-const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: Responda sempre em português brasileiro correto e formal, mas acolhedor. Seja breve e objetivo (máximo 2 parágrafos curtos). Use *negrito* para destaques (formato WhatsApp, sempre abrir e fechar com um único asterisco, exemplo: *texto*). Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. Não invente informações jurídicas ou contábeis específicas. Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). Horário: segunda a sexta, 8h às 18h. Prazo de resposta: até 24 horas. Atendimento online para todo o Brasil. Telefone: (37) 98807-5561. E-mail: contato@adenilsonribeiro.top. Site: www.adenilsonribeiro.top. Instagram: instagram.com/adenilsonribeiro.top. Não forneça preços nem honorários — diga que são tratados de forma personalizada e sugira agendar consulta. Se o cliente perguntar algo fora das áreas de atuação, diga educadamente que o escritório atua nas áreas mencionadas.";
+const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) Não invente informações jurídicas ou contábeis específicas. 6) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). 7) NÃO repita a apresentação do escritório em cada mensagem — o cliente já sabe quem somos. 8) Responda a pergunta de forma útil e direta, sem enrolação. 9) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 10) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente sem oferecer serviços. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar algo fora das áreas, diga educadamente que atua nas áreas mencionadas.";
 
 const conversationHistory = new Map();
 
@@ -333,6 +333,18 @@ var sock = null;
 var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
 
+// ========== LISTA DE CONTATOS IGNORADOS (bot NÃO responde) ==========
+// Adicione números no formato: 55DDDNUMERO@s.whatsapp.net
+const IGNORED_CONTACTS = new Set([
+  "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
+  "5537999521810@s.whatsapp.net",  // Adenilson pessoal
+]);
+
+// Comando admin para adicionar/remover contatos ignorados em tempo real
+// !ignorar 5531999999999 — adiciona
+// !desigmorar 5531999999999 — remove
+// !ignorados — lista todos
+
 function wasSeen(id) {
   if (processed.has(id)) return true;
   processed.add(id);
@@ -381,6 +393,9 @@ async function startBot() {
       if (msg.messageTimestamp && (Date.now() / 1000 - msg.messageTimestamp) > 60) continue;
       if (isFlood(msg.key.remoteJid)) continue;
 
+      // Ignorar contatos da lista (parceiros, família, etc.)
+      if (IGNORED_CONTACTS.has(msg.key.remoteJid)) continue;
+
       var text = "";
       if (msg.message) text = msg.message.conversation || (msg.message.extendedTextMessage ? msg.message.extendedTextMessage.text : "") || "";
       if (!text) continue;
@@ -421,6 +436,33 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
 
       // Registrar protocolo
       var proto = getProtocol(from);
+
+      // Comandos admin: gerenciar contatos ignorados
+      if (from === "5537988075561@s.whatsapp.net") {
+        if (clean.startsWith("!ignorar ")) {
+          var num = clean.replace("!ignorar ", "").replace(/[^0-9]/g, "");
+          if (num) { IGNORED_CONTACTS.add(num + "@s.whatsapp.net"); response = `✅ Número ${num} adicionado à lista de ignorados. O bot não responderá mais a esse contato.`; }
+          else { response = "Use: !ignorar 5531999999999"; }
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        }
+        if (clean.startsWith("!desigmorar ") || clean.startsWith("!designorar ")) {
+          var num2 = clean.replace(/^!(desigmorar|designorar) /, "").replace(/[^0-9]/g, "");
+          IGNORED_CONTACTS.delete(num2 + "@s.whatsapp.net");
+          response = `✅ Número ${num2} removido da lista. O bot voltará a responder.`;
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        }
+        if (clean === "!ignorados") {
+          var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
+          response = `📋 *Contatos ignorados (${lista.length}):*
+
+` + (lista.length > 0 ? lista.join("
+") : "Nenhum contato na lista.");
+          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          continue;
+        }
+      }
 
       // Comando admin: relatório de protocolos
       if (clean === "!protocolos" && from === "5537988075561@s.whatsapp.net") {
