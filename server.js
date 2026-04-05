@@ -104,6 +104,7 @@ function getSaudacao() {
 // ========== RODAPÉ ==========
 const FOOTER = `
 
+
 📧 contato@adenilsonribeiro.top
 📲 Siga no Instagram: instagram.com/adenilsonribeiro.top`;
 
@@ -337,7 +338,6 @@ var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remet
 // Adicione números no formato: 55DDDNUMERO@s.whatsapp.net
 const IGNORED_CONTACTS = new Set([
   "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
-  "5537999521810@s.whatsapp.net",  // Adenilson pessoal
   "5537841466460@s.whatsapp.net",  // Juliana (restrito)
   "5537842641280@s.whatsapp.net",  // Gabriella (restrito)
   "5537915808260@s.whatsapp.net",  // ALIF Mecânico (pessoal)
@@ -404,7 +404,7 @@ async function startBot() {
       var clean = text.trim().toLowerCase();
 
       // Permitir comandos admin (!) mesmo de números ignorados
-      var isAdmin = (from === "5537988075561@s.whatsapp.net" || from === "5537999521810@s.whatsapp.net");
+      var isAdmin = (from === "5537999521810@s.whatsapp.net");
       var isAdminCmd = isAdmin && clean.startsWith("!");
 
       // Ignorar contatos da lista (parceiros, família, etc.) — exceto comandos admin
@@ -462,10 +462,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
         }
         if (clean === "!ignorados") {
           var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
-          response = "📋 *Contatos ignorados (" + lista.length + "):*
-
-" + (lista.length > 0 ? lista.join("
-") : "Nenhum contato na lista.");
+          response = "📋 *Contatos ignorados (" + lista.length + "):*\n\n" + (lista.length > 0 ? lista.join("\n") : "Nenhum contato na lista.");
           try { await sock.sendMessage(from, { text: response }); } catch (e) {}
           continue;
         }
@@ -489,27 +486,27 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
       // Comando admin: relatório de satisfação detalhado
       if (clean === "!satisfacao" && isAdmin) {
         var dataS = loadProtocols();
-        var ratedList = Object.entries(dataS.sessions).filter(function(e) { return e[1].rating; });
+        var rated = Object.entries(dataS.sessions).filter(function(e) { return e[1].rating; });
         var txt = `📊 *Pesquisa de Satisfação (ISO 9001)*
 
 `;
-        if (ratedList.length === 0) {
+        if (rated.length === 0) {
           txt += "Nenhuma avaliação registrada ainda.";
         } else {
           var dist = [0,0,0,0,0];
-          for (var r = 0; r < ratedList.length; r++) { dist[ratedList[r][1].rating - 1]++; }
-          txt += `Total de avaliações: ${ratedList.length}
+          for (var r = 0; r < rated.length; r++) { dist[rated[r][1].rating - 1]++; }
+          txt += `Total de avaliações: ${rated.length}
 
 `;
-          txt += `5️⃣ Excelente: ${dist[4]} (${(dist[4]/ratedList.length*100).toFixed(0)}%)
+          txt += `5️⃣ Excelente: ${dist[4]} (${(dist[4]/rated.length*100).toFixed(0)}%)
 `;
-          txt += `4️⃣ Bom: ${dist[3]} (${(dist[3]/ratedList.length*100).toFixed(0)}%)
+          txt += `4️⃣ Bom: ${dist[3]} (${(dist[3]/rated.length*100).toFixed(0)}%)
 `;
-          txt += `3️⃣ Regular: ${dist[2]} (${(dist[2]/ratedList.length*100).toFixed(0)}%)
+          txt += `3️⃣ Regular: ${dist[2]} (${(dist[2]/rated.length*100).toFixed(0)}%)
 `;
-          txt += `2️⃣ Ruim: ${dist[1]} (${(dist[1]/ratedList.length*100).toFixed(0)}%)
+          txt += `2️⃣ Ruim: ${dist[1]} (${(dist[1]/rated.length*100).toFixed(0)}%)
 `;
-          txt += `1️⃣ Péssimo: ${dist[0]} (${(dist[0]/ratedList.length*100).toFixed(0)}%)`;
+          txt += `1️⃣ Péssimo: ${dist[0]} (${(dist[0]/rated.length*100).toFixed(0)}%)`;
         }
         try { await sock.sendMessage(from, { text: txt }); } catch (e) {}
         continue;
