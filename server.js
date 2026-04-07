@@ -243,7 +243,7 @@ const KEYWORDS = {
   advocacia: "1", advogado: "1", juridico: "1", "jurídico": "1",
   contabilidade: "2", contador: "2", contabil: "2", "contábil": "2", mei: "2",
   pericia: "3", "perícia": "3", perito: "3", laudo: "3",
-  irpf: "4", "imposto de renda": "4", declaracao: "4", "declaração": "4", "malha fina": "4",
+  irpf: "4", "imposto de renda": "4", declaracao: "4", "declaração": "4", "malha fina": "4", imposto: "4", declarar: "4", renda: "4",
   certidao: "5", "certidão": "5", cnd: "5", licitacao: "5", "licitação": "5",
   agendar: "6", agendamento: "6", "marcar consulta": "6", "marcar horário": "6",
   atendente: "7", "falar com adenilson": "7", "falar com alguem": "7", "falar com alguém": "7",
@@ -330,6 +330,36 @@ var connectionStatus = "disconnected";
 var sock = null;
 var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
+var humanTakeover = new Map(); // Pausa humana: quando Adenilson responde, bot para por 2h
+var botSentMessages = new Set(); // IDs de mensagens enviadas pelo bot (para distinguir de manuais)
+
+// ========== PAUSA HUMANA ==========
+function isHumanTakeover(jid) {
+  var ts = humanTakeover.get(jid);
+  if (ts && (Date.now() - ts) < 7200000) return true;
+  if (ts) humanTakeover.delete(jid);
+  return false;
+}
+
+// ========== REMOVER ACENTOS (para comparação de palavras-chave) ==========
+function removeAccents(str) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// ========== ENVIO SEGURO (rastreia mensagens do bot) ==========
+async function botSend(to, content) {
+  try {
+    var sent = await sock.sendMessage(to, content);
+    if (sent && sent.key && sent.key.id) {
+      botSentMessages.add(sent.key.id);
+      setTimeout(function() { botSentMessages.delete(sent.key.id); }, 120000);
+    }
+    return sent;
+  } catch (e) {
+    console.error("Erro envio:", e.message);
+    return null;
+  }
+}
 
 // ========== LISTA DE CONTATOS IGNORADOS (bot NÃO responde) ==========
 // Adicione números no formato: 55DDDNUMERO@s.whatsapp.net
@@ -388,10 +418,25 @@ async function startBot() {
     if (ev.type !== "notify") return;
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
-      if (msg.key.fromMe || msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.endsWith("@g.us")) continue;
+      // Detectar mensagem manual do Adenilson (fromMe) para ativar pausa humana
+      if (msg.key.fromMe) {
+        if (msg.key.remoteJid !== "status@broadcast" && !msg.key.remoteJid.endsWith("@g.us")) {
+          // Só ativar pausa se NÃO foi o bot que enviou
+          var isAdminJid = (msg.key.remoteJid === "5537999521810@s.whatsapp.net" || msg.key.remoteJid === "553799952181@s.whatsapp.net");
+          if (!botSentMessages.has(msg.key.id) && !isAdminJid) {
+            humanTakeover.set(msg.key.remoteJid, Date.now());
+            console.log("PAUSA HUMANA ativada: " + msg.key.remoteJid + " (2h)");
+          }
+        }
+        continue;
+      }
+      if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.endsWith("@g.us")) continue;
       if (wasSeen(msg.key.id)) continue;
       if (msg.messageTimestamp && (Date.now() / 1000 - msg.messageTimestamp) > 60) continue;
       if (isFlood(msg.key.remoteJid)) continue;
+
+      // Pausa humana: se Adenilson respondeu manualmente, bot não interfere (2h)
+      if (isHumanTakeover(msg.key.remoteJid)) continue;
 
       var text = "";
       if (msg.message) text = msg.message.conversation || (msg.message.extendedTextMessage ? msg.message.extendedTextMessage.text : "") || "";
@@ -429,7 +474,7 @@ async function startBot() {
 Muito obrigado pela sua avaliação! Sua opinião é fundamental para melhorarmos nosso atendimento.
 
 Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
           continue;
         } else {
           response = `Por favor, digite uma nota de *1* a *5* para avaliar o atendimento:
@@ -439,7 +484,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
 3️⃣ Regular
 4️⃣ Bom
 5️⃣ Excelente`;
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
           continue;
         }
         }
@@ -453,21 +498,46 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
           var num = clean.replace("!ignorar ", "").replace(/[^0-9]/g, "");
           if (num) { IGNORED_CONTACTS.add(num + "@s.whatsapp.net"); response = `✅ Número ${num} adicionado à lista de ignorados. O bot não responderá mais a esse contato.`; }
           else { response = "Use: !ignorar 5531999999999"; }
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
           continue;
         }
         if (clean.startsWith("!desigmorar ") || clean.startsWith("!designorar ")) {
           var num2 = clean.replace(/^!(desigmorar|designorar) /, "").replace(/[^0-9]/g, "");
           IGNORED_CONTACTS.delete(num2 + "@s.whatsapp.net");
           response = `✅ Número ${num2} removido da lista. O bot voltará a responder.`;
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
           continue;
         }
         if (clean === "!ignorados") {
           var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
           var NL = String.fromCharCode(10);
           response = "Contatos ignorados (" + lista.length + "):" + NL + NL + (lista.length > 0 ? lista.join(NL) : "Nenhum contato na lista.");
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
+          continue;
+        }
+        // Comando admin: retomar bot para contato (cancelar pausa humana)
+        if (clean.startsWith("!retomar ")) {
+          var numR = clean.replace("!retomar ", "").replace(/[^0-9]/g, "");
+          if (numR) {
+            humanTakeover.delete(numR + "@s.whatsapp.net");
+            response = "\u2705 Bot reativado para " + numR + ". O bot voltar\u00e1 a responder.";
+          } else { response = "Use: !retomar 5531999999999"; }
+          await botSend(from, { text: response });
+          continue;
+        }
+        // Comando admin: listar contatos com pausa humana ativa
+        if (clean === "!pausados") {
+          var pausados = [];
+          var agora = Date.now();
+          humanTakeover.forEach(function(ts, jid) {
+            if ((agora - ts) < 7200000) {
+              var min = Math.round((agora - ts) / 60000);
+              pausados.push(jid.replace("@s.whatsapp.net", "") + " (" + min + "min)");
+            }
+          });
+          var NL2 = String.fromCharCode(10);
+          response = "Contatos em pausa humana (" + pausados.length + "):" + NL2 + NL2 + (pausados.length > 0 ? pausados.join(NL2) : "Nenhum contato pausado.");
+          await botSend(from, { text: response });
           continue;
         }
       }
@@ -483,7 +553,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
 • Protocolos abertos: ${stats.abertos}
 • Protocolos encerrados: ${stats.encerrados}
 • Nota média de satisfação: ${stats.avgRating} (${stats.ratingCount} avaliações)`;
-        try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+        await botSend(from, { text: response });
         continue;
       }
 
@@ -512,7 +582,7 @@ Se precisar de algo mais, é só enviar uma nova mensagem.` + FOOTER;
 `;
           txt += `1️⃣ Péssimo: ${dist[0]} (${(dist[0]/rated.length*100).toFixed(0)}%)`;
         }
-        try { await sock.sendMessage(from, { text: txt }); } catch (e) {}
+        await botSend(from, { text: txt });
         continue;
   }
 
@@ -534,7 +604,7 @@ Para encerrar o atendimento, por favor avalie nosso serviço de *1* a *5*:
 5️⃣ Excelente
 
 Sua avaliação é muito importante para a melhoria contínua dos nossos serviços.`;
-          try { await sock.sendMessage(from, { text: response }); } catch (e) {}
+          await botSend(from, { text: response });
           continue;
         }
       }
@@ -543,9 +613,15 @@ Sua avaliação é muito importante para a melhoria contínua dos nossos serviç
       if (RESPONSES[numKey]) response = RESPONSES[numKey];
 
       if (!response) {
+        var cleanNoAccent = removeAccents(clean);
         var kw = Object.entries(KEYWORDS);
         for (var k = 0; k < kw.length; k++) {
-          if (clean.includes(kw[k][0])) { response = kw[k][1] === "menu" ? getMenu() : RESPONSES[kw[k][1]]; break; }
+          var kwKey = kw[k][0];
+          var kwNoAccent = removeAccents(kwKey);
+          if (clean.includes(kwKey) || cleanNoAccent.includes(kwNoAccent)) {
+            response = kw[k][1] === "menu" ? getMenu() : RESPONSES[kw[k][1]];
+            break;
+          }
         }
       }
 
@@ -563,20 +639,18 @@ Sua avaliação é muito importante para a melhoria contínua dos nossos serviç
 ` + response;
       }
 
-      try { await sock.sendMessage(from, { text: response }); } catch (e) { console.error("Erro:", e.message); }
+      await botSend(from, { text: response });
 
       if (numKey === "7" || clean.includes("atendente") || clean.includes("humano")) {
-        try {
-          var cn = from.replace("@s.whatsapp.net", "");
-          await sock.sendMessage("5537999521810@s.whatsapp.net", {
-            text: `🔔 *Novo cliente solicitou atendente!*
+        var cn = from.replace("@s.whatsapp.net", "");
+        await botSend("5537999521810@s.whatsapp.net", {
+          text: `🔔 *Novo cliente solicitou atendente!*
 
 Número: +${cn}
 Protocolo: ${proto.protocol}
 Mensagem: ${text}
 Horário: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
-          });
-        } catch (e) {}
+        });
       }
     }
   });
@@ -626,6 +700,25 @@ http.createServer(async function(req, res) {
     if (num3) { IGNORED_CONTACTS.delete(num3.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, removido: num3 }));
+  }
+  // ========== ADMIN WEB: pausa humana ==========
+  if (url.pathname === "/admin/pausados") {
+    var pausados = [];
+    var agora = Date.now();
+    humanTakeover.forEach(function(ts, jid) {
+      if ((agora - ts) < 7200000) {
+        var min = Math.round((agora - ts) / 60000);
+        pausados.push({ numero: jid.replace("@s.whatsapp.net", ""), minutos: min });
+      }
+    });
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ total: pausados.length, contatos: pausados }, null, 2));
+  }
+  if (url.pathname === "/admin/retomar") {
+    var numRet = url.searchParams.get("num");
+    if (numRet) { humanTakeover.delete(numRet.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ ok: true, retomado: numRet }));
   }
   if (url.pathname === "/webhook" && req.method === "GET") {
     var p = url.searchParams;
