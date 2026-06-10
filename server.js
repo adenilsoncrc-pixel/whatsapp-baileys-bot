@@ -368,6 +368,8 @@ const IGNORED_CONTACTS = new Set([
   "5537841466460@s.whatsapp.net",  // Juliana (restrito)
   "5537842641280@s.whatsapp.net",  // Gabriella (restrito)
   "5537915808260@s.whatsapp.net",  // ALIF Mecânico (pessoal)
+  "187939782938841@lid",            // Gabriella (formato @lid)
+  "51174535348326@lid",             // Juliana (formato @lid)
 ]);
 
 // Comando admin para adicionar/remover contatos ignorados em tempo real
@@ -456,7 +458,17 @@ async function startBot() {
       var isAdminCmd = isAdmin && clean.startsWith("!");
 
       // Ignorar contatos da lista (parceiros, família, etc.) — exceto comandos admin
-      if (IGNORED_CONTACTS.has(from) && !isAdminCmd) continue;
+      // Suporta tanto @s.whatsapp.net quanto @lid (novo formato Linked ID do WhatsApp)
+      var fromBare = from.split("@")[0];
+      var isIgnored = IGNORED_CONTACTS.has(from)
+                   || IGNORED_CONTACTS.has(fromBare)
+                   || IGNORED_CONTACTS.has(fromBare + "@s.whatsapp.net")
+                   || IGNORED_CONTACTS.has(fromBare + "@lid");
+      // Log para descobrir novos JIDs @lid
+      if (from.indexOf("@lid") !== -1) {
+        console.log("[LID] JID=" + from + " ignored=" + isIgnored + " msg=" + clean.substring(0, 30));
+      }
+      if (isIgnored && !isAdminCmd) continue;
       var response = null;
 
       // Verificar se está aguardando avaliação
@@ -685,19 +697,35 @@ http.createServer(async function(req, res) {
   }
   // ========== ADMIN WEB: gerenciar contatos ignorados ==========
   if (url.pathname === "/admin/ignorados") {
-    var lista = Array.from(IGNORED_CONTACTS).map(function(c) { return c.replace("@s.whatsapp.net", ""); });
+    var lista = Array.from(IGNORED_CONTACTS);
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ total: lista.length, contatos: lista }, null, 2));
   }
   if (url.pathname === "/admin/ignorar") {
     var num = url.searchParams.get("num");
-    if (num) { IGNORED_CONTACTS.add(num.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
+    if (num) {
+      var cleanNum = num.replace(/[^0-9]/g, "");
+      // Detectar se é @lid (input contém "lid") ou número de telefone normal
+      var isLid = num.toLowerCase().indexOf("lid") !== -1;
+      if (isLid) {
+        IGNORED_CONTACTS.add(cleanNum + "@lid");
+      } else {
+        // Adicionar ambos formatos para máxima segurança
+        IGNORED_CONTACTS.add(cleanNum + "@s.whatsapp.net");
+        IGNORED_CONTACTS.add(cleanNum + "@lid");
+      }
+    }
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, adicionado: num }));
   }
   if (url.pathname === "/admin/designorar") {
     var num3 = url.searchParams.get("num");
-    if (num3) { IGNORED_CONTACTS.delete(num3.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
+    if (num3) {
+      var cn3 = num3.replace(/[^0-9]/g, "");
+      IGNORED_CONTACTS.delete(cn3 + "@s.whatsapp.net");
+      IGNORED_CONTACTS.delete(cn3 + "@lid");
+      IGNORED_CONTACTS.delete(cn3);
+    }
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, removido: num3 }));
   }
