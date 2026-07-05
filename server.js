@@ -110,18 +110,18 @@ const FOOTER = `
 function getMenu() {
   return getSaudacao() + `! Seja bem-vindo(a). 😊
 
-Sou *Adenilson Ribeiro* e este é o meu *Escritório Digital*, com atuação nas áreas de Advocacia, Contabilidade, Perícia, Administração Judicial e Diligências.
+Sou *Adenilson Ribeiro* e este é o meu *Escritório de Contabilidade, Perícia, Administração Judicial e Diligências*.
 
 📋 *Selecione o serviço desejado:*
 
-1️⃣ Advocacia e Consultoria Jurídica
-2️⃣ Contabilidade e Impostos
-3️⃣ Perícia Contábil e Judicial
-4️⃣ IRPF – Imposto de Renda
-5️⃣ Certidões e Documentos
-6️⃣ Agendar Consulta
-7️⃣ Falar com Adenilson
-8️⃣ Diligências para Empresas e Profissionais
+1️⃣ Contabilidade e Impostos
+2️⃣ Perícia Contábil e Judicial
+3️⃣ IRPF – Imposto de Renda
+4️⃣ Certidões e Documentos
+5️⃣ Agendar Consulta
+6️⃣ Falar com Adenilson
+7️⃣ Diligências para Empresas e Profissionais
+8️⃣ Administração Judicial
 
 Digite o *número* da opção ou descreva o que precisa.
 Você também pode fazer perguntas livremente que nossa IA responderá.
@@ -129,21 +129,7 @@ Você também pode fazer perguntas livremente que nossa IA responderá.
 _Para encerrar o atendimento, digite_ *0* _ou_ *encerrar*` + FOOTER;
 }
 const RESPONSES = {
-  "1": `⚖️ *Advocacia e Consultoria Jurídica*
-
-Áreas de atuação:
-• Direito Civil e Empresarial
-• Direito Trabalhista
-• Direito Tributário
-• Elaboração de Contratos e Pareceres
-• Consultoria Jurídica Preventiva
-
-📌 OAB/MG 218.018
-
-_Para agendar uma consulta, digite_ *6*
-_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
-
-  "2": `📊 *Contabilidade e Impostos*
+  "1": `📊 *Contabilidade e Impostos*
 
 Serviços disponíveis:
 • Abertura e Encerramento de Empresas
@@ -155,10 +141,10 @@ Serviços disponíveis:
 
 📌 CRC/MG 111.185
 
-_Para agendar, digite_ *6*
+_Para agendar, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "3": `🔍 *Perícia Contábil e Judicial*
+  "2": `🔍 *Perícia Contábil e Judicial*
 
 Formas de atuação:
 • Perito Judicial nomeado pelo Juízo
@@ -167,10 +153,10 @@ Formas de atuação:
 • Elaboração de Laudos Periciais Contábeis
 • Cálculos Judiciais e Trabalhistas
 
-_Para agendar, digite_ *6*
+_Para agendar, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "4": `💰 *IRPF – Imposto de Renda*
+  "3": `💰 *IRPF – Imposto de Renda*
 
 Serviços disponíveis:
 • Declaração Completa e Simplificada
@@ -180,10 +166,10 @@ Serviços disponíveis:
 • Apuração de Ganho de Capital
 • Planejamento para a próxima declaração
 
-_Para agendar, digite_ *6*
+_Para agendar, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "5": `📄 *Certidões e Documentos*
+  "4": `📄 *Certidões e Documentos*
 
 Emissão e assessoria:
 • Certidão Negativa de Débitos (CND)
@@ -192,15 +178,15 @@ Emissão e assessoria:
 • Certidões da Justiça Federal e Estadual
 • Documentação para Licitações e Contratos
 
-_Para agendar, digite_ *6*
+_Para agendar, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER,
 
-  "6": `📅 *Agendamento de Consulta*
+  "5": `📅 *Agendamento de Consulta*
 
 Para agendar, envie as seguintes informações:
 
 • Seu *nome completo*
-• *Assunto* (advocacia, contabilidade, perícia ou IRPF)
+• *Assunto* (contabilidade, perícia, IRPF, certidões ou diligências)
 • *Data e horário* de sua preferência
 
 🕐 *Atendimento:* segunda a sexta, das 8h às 18h
@@ -211,7 +197,7 @@ Para agendar, envie as seguintes informações:
 
 Assim que receber seus dados, entrarei em contato para confirmar.` + FOOTER,
 
-  "7": `📞 *Atendimento Humano*
+  "6": `📞 *Atendimento Humano*
 
 Sua mensagem foi encaminhada para *Adenilson Ribeiro*.
 Responderemos o mais breve possível.
@@ -223,7 +209,7 @@ Responderemos o mais breve possível.
 
 Agradecemos o seu contato e a sua paciência.` + FOOTER,
 
-  "8": `📍 *Diligências para Empresas e Profissionais*
+  "7": `📍 *Diligências para Empresas e Profissionais*
 
 Serviços disponíveis:
 • Diligências em Órgãos Públicos (Receita Federal, INSS, Juntas Comerciais)
@@ -233,21 +219,34 @@ Serviços disponíveis:
 • Diligências Cartórias e Judiciais
 • Atendimento para Empresas e Profissionais de todo o Brasil
 
-_Para agendar, digite_ *6*
+_Para agendar, digite_ *5*
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
+
+  "8": `⚖️ *Administração Judicial*
+
+Atuação como Administrador Judicial em:
+• Recuperação Judicial de Empresas
+• Processos de Falência
+• Gestão de Massa Falida
+• Elaboração de Relatórios e Prestação de Contas
+• Verificação e Habilitação de Créditos
+• Assembleia de Credores
+
+_Para agendar, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER
 };
 
 const KEYWORDS = {
   menu: "menu", oi: "menu", ola: "menu", "olá": "menu", inicio: "menu", "início": "menu",
   hi: "menu", hello: "menu", "bom dia": "menu", "boa tarde": "menu", "boa noite": "menu",
-  advocacia: "1", advogado: "1", juridico: "1", "jurídico": "1",
-  contabilidade: "2", contador: "2", contabil: "2", "contábil": "2", mei: "2",
-  pericia: "3", "perícia": "3", perito: "3", laudo: "3",
-  irpf: "4", "imposto de renda": "4", declaracao: "4", "declaração": "4", "malha fina": "4", imposto: "4", declarar: "4", renda: "4",
-  certidao: "5", "certidão": "5", cnd: "5", licitacao: "5", "licitação": "5",
-  agendar: "6", agendamento: "6", "marcar consulta": "6", "marcar horário": "6",
-  atendente: "7", "falar com adenilson": "7", "falar com alguem": "7", "falar com alguém": "7",
-  "diligência": "8", "diligências": "8", diligencia: "8", diligencias: "8"
+  contabilidade: "1", contador: "1", contabil: "1", "contábil": "1", mei: "1",
+  pericia: "2", "perícia": "2", perito: "2", laudo: "2",
+  irpf: "3", "imposto de renda": "3", declaracao: "3", "declaração": "3", "malha fina": "3", imposto: "3", declarar: "3", renda: "3",
+  certidao: "4", "certidão": "4", cnd: "4", licitacao: "4", "licitação": "4",
+  agendar: "5", agendamento: "5", "marcar consulta": "5", "marcar horário": "5",
+  atendente: "6", "falar com adenilson": "6", "falar com alguem": "6", "falar com alguém": "6",
+  "diligência": "7", "diligências": "7", diligencia: "7", diligencias: "7",
+  "administração judicial": "8", "administrador judicial": "8", falencia: "8", "falência": "8", "recuperação judicial": "8", recuperacao: "8"
 };
 
 // ========== RESPOSTA PADRÃO (SEM IA) ==========
@@ -256,20 +255,20 @@ function getFallback() {
 
 Não consegui identificar o serviço desejado. Por favor, digite o *número* de uma das opções abaixo:
 
-1️⃣ Advocacia e Consultoria Jurídica
-2️⃣ Contabilidade e Impostos
-3️⃣ Perícia Contábil e Judicial
-4️⃣ IRPF – Imposto de Renda
-5️⃣ Certidões e Documentos
-6️⃣ Agendar Consulta
-7️⃣ Falar com Adenilson
-8️⃣ Diligências
+1️⃣ Contabilidade e Impostos
+2️⃣ Perícia Contábil e Judicial
+3️⃣ IRPF – Imposto de Renda
+4️⃣ Certidões e Documentos
+5️⃣ Agendar Consulta
+6️⃣ Falar com Adenilson
+7️⃣ Diligências
+8️⃣ Administração Judicial
 
 Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
-const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório Digital Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Advocacia (OAB/MG 218.018), Contabilidade (CRC/MG 111.185), Perícia Judicial e Extrajudicial, Administração Judicial e Diligências para Empresas e Profissionais. Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) Não invente informações jurídicas ou contábeis específicas. 6) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 6). 7) NÃO repita a apresentação do escritório em cada mensagem — o cliente já sabe quem somos. 8) Responda a pergunta de forma útil e direta, sem enrolação. 9) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 10) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente sem oferecer serviços. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar algo fora das áreas, diga educadamente que atua nas áreas mencionadas.";
+const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório de Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Contabilidade (CRC/MG 111.185), Perícia Contábil Judicial e Extrajudicial, Administração Judicial (Recuperação Judicial e Falências) e Diligências para Empresas e Profissionais. Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) NÃO ofereça consultoria jurídica ou advocacia — se o cliente pedir assessoria jurídica, oriente a agendar consulta presencial (opção 5) para tratar do assunto separadamente. 6) Não invente informações contábeis específicas. 7) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 5). 8) NÃO repita a apresentação do escritório em cada mensagem — o cliente já sabe quem somos. 9) Responda a pergunta de forma útil e direta, sem enrolação. 10) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 11) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente sem oferecer serviços. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar sobre advocacia ou serviços jurídicos, responda educadamente que este canal atende apenas contabilidade, perícia, administração judicial e diligências.";
 
 const conversationHistory = new Map();
 
