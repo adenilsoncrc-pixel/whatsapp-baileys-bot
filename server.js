@@ -110,7 +110,7 @@ const FOOTER = `
 function getMenu() {
   return getSaudacao() + `! Seja bem-vindo(a). 😊
 
-Sou *Adenilson Ribeiro* e este é o meu *Escritório de Contabilidade, Perícia, Administração Judicial e Diligências*.
+Sou *Adenilson Ribeiro* e este é o meu *Escritório de Contabilidade, Perícia, Administração Judicial, Diligências e Psicanálise*.
 
 📋 *Selecione o serviço desejado:*
 
@@ -122,6 +122,7 @@ Sou *Adenilson Ribeiro* e este é o meu *Escritório de Contabilidade, Perícia,
 6️⃣ Falar com Adenilson
 7️⃣ Diligências para Empresas e Profissionais
 8️⃣ Administração Judicial
+9️⃣ Psicanálise — Atendimento Clínico
 
 Digite o *número* da opção ou descreva o que precisa.
 Você também pode fazer perguntas livremente que nossa IA responderá.
@@ -233,6 +234,19 @@ Atuação como Administrador Judicial em:
 • Assembleia de Credores
 
 _Para agendar, digite_ *5*
+_Para voltar ao menu principal, digite_ *menu*` + FOOTER,
+
+  "9": `🧠 *Psicanálise — Atendimento Clínico*
+
+Modalidades de atendimento:
+• Análise Individual (adultos e adolescentes)
+• Escuta Clínica em Momentos de Crise
+• Ansiedade, Depressão e Sofrimento Psíquico
+• Questões Existenciais e Relações Familiares
+• Atendimento Online (todo o Brasil)
+• Sigilo profissional absoluto
+
+_Para agendar uma sessão, digite_ *5*
 _Para voltar ao menu principal, digite_ *menu*` + FOOTER
 };
 
@@ -246,7 +260,8 @@ const KEYWORDS = {
   agendar: "5", agendamento: "5", "marcar consulta": "5", "marcar horário": "5",
   atendente: "6", "falar com adenilson": "6", "falar com alguem": "6", "falar com alguém": "6",
   "diligência": "7", "diligências": "7", diligencia: "7", diligencias: "7",
-  "administração judicial": "8", "administrador judicial": "8", falencia: "8", "falência": "8", "recuperação judicial": "8", recuperacao: "8"
+  "administração judicial": "8", "administrador judicial": "8", falencia: "8", "falência": "8", "recuperação judicial": "8", recuperacao: "8",
+  psicanalise: "9", "psicanálise": "9", psicanalista: "9", terapia: "9", analise: "9", "análise clínica": "9", ansiedade: "9", "depressão": "9", depressao: "9", escuta: "9", clínica: "9", clinica: "9"
 };
 
 // ========== RESPOSTA PADRÃO (SEM IA) ==========
@@ -263,12 +278,13 @@ Não consegui identificar o serviço desejado. Por favor, digite o *número* de 
 6️⃣ Falar com Adenilson
 7️⃣ Diligências
 8️⃣ Administração Judicial
+9️⃣ Psicanálise
 
 Ou descreva o que precisa com mais detalhes.` + FOOTER;
 }
 
 // ========== INTELIGÊNCIA ARTIFICIAL (GROQ) ==========
-const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório de Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Contabilidade (CRC/MG 111.185), Perícia Contábil Judicial e Extrajudicial, Administração Judicial (Recuperação Judicial e Falências) e Diligências para Empresas e Profissionais. Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) NÃO ofereça consultoria jurídica ou advocacia — se o cliente pedir assessoria jurídica, oriente a agendar consulta presencial (opção 5) para tratar do assunto separadamente. 6) Não invente informações contábeis específicas. 7) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 5). 8) NÃO repita a apresentação do escritório em cada mensagem — o cliente já sabe quem somos. 9) Responda a pergunta de forma útil e direta, sem enrolação. 10) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 11) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente sem oferecer serviços. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar sobre advocacia ou serviços jurídicos, responda educadamente que este canal atende apenas contabilidade, perícia, administração judicial e diligências.";
+const SYSTEM_PROMPT = "Você é o assistente virtual do Escritório de Adenilson Ribeiro. Adenilson é um profissional individual (não tem equipe) que atua nas áreas de Contabilidade (CRC/MG 111.185), Perícia Contábil Judicial e Extrajudicial, Administração Judicial (Recuperação Judicial e Falências), Diligências e Psicanálise (atendimento clínico). Regras: 1) Responda sempre em português brasileiro correto e formal, mas acolhedor. 2) Seja MUITO breve e direto — máximo 3 frases curtas. Não repita informações de contato nem dados do escritório em toda resposta. 3) Use *negrito* para destaques. 4) Nunca diga 'nossa equipe' — use 'eu' ou 'Adenilson Ribeiro'. 5) NÃO ofereça consultoria jurídica ou advocacia — se o cliente pedir assessoria jurídica, oriente a procurar canal específico da advocacia. 6) Para psicanálise: acolha com sensibilidade, nunca faça diagnósticos nem interpretações clínicas por mensagem — sempre oriente a agendar sessão (opção 5). Nunca minimize sofrimento psíquico. Se houver sinal de crise grave (ideiação suicida, violência), oriente imediatamente CVV 188 ou emergência 192. 7) Não invente informações contábeis específicas. 8) Quando o assunto exigir análise detalhada, oriente a agendar consulta (opção 5). 9) NÃO repita a apresentação do escritório em cada mensagem. 10) Responda de forma útil e direta, sem enrolação. 11) NÃO inclua telefone, email ou site na resposta — o rodapé já tem essas informações. 12) Se a mensagem for casual (oi, obrigado, ok, etc.), responda naturalmente. Dados: Horário segunda a sexta 8h-18h, atendimento online todo o Brasil, prazo até 24h. Honorários tratados de forma personalizada. Se o cliente perguntar sobre advocacia ou serviços jurídicos, responda educadamente que este canal não atende advocacia.";
 
 const conversationHistory = new Map();
 
