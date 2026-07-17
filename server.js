@@ -763,6 +763,21 @@ http.createServer(async function(req, res) {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, retomado: numRet }));
   }
+  // ========== ADMIN: reset completo da sessao WhatsApp ==========
+  if (url.pathname === "/admin/reset-session") {
+    try {
+      if (fs.existsSync(AUTH_DIR)) {
+        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+      }
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, msg: "Sessao limpa. Servidor sera reiniciado em 2s." }));
+      setTimeout(function() { process.exit(0); }, 2000);
+      return;
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      return res.end(JSON.stringify({ ok: false, erro: String(e) }));
+    }
+  }
   if (url.pathname === "/webhook" && req.method === "GET") {
     var p = url.searchParams;
     if (p.get("hub.mode") === "subscribe" && p.get("hub.verify_token") === "adr_contabil_webhook_2026") {
