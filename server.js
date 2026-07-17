@@ -766,11 +766,19 @@ http.createServer(async function(req, res) {
   // ========== ADMIN: reset completo da sessao WhatsApp ==========
   if (url.pathname === "/admin/reset-session") {
     try {
+      // fecha socket ativo se houver
+      try { if (sock && sock.end) sock.end(); } catch(e){}
+      try { if (sock && sock.ws && sock.ws.close) sock.ws.close(); } catch(e){}
+      // apaga arquivo por arquivo (folder pode estar em uso)
+      var apagados = 0;
       if (fs.existsSync(AUTH_DIR)) {
-        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        var arquivos = fs.readdirSync(AUTH_DIR);
+        for (var i = 0; i < arquivos.length; i++) {
+          try { fs.unlinkSync(path.join(AUTH_DIR, arquivos[i])); apagados++; } catch(e){}
+        }
       }
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: true, msg: "Sessao limpa. Servidor sera reiniciado em 2s." }));
+      res.end(JSON.stringify({ ok: true, arquivos_apagados: apagados, msg: "Sessao limpa. Servidor sera reiniciado em 2s." }));
       setTimeout(function() { process.exit(0); }, 2000);
       return;
     } catch (e) {
