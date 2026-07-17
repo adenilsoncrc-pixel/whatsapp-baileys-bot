@@ -413,9 +413,10 @@ async function startBot() {
   var ver = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
-    version: ver.version, auth: auth.state, printQRInTerminal: true,
-    logger: pino({ level: "silent" }), browser: ["ADR Contabilidade", "Chrome", "1.0.0"],
-    connectTimeoutMs: 60000, defaultQueryTimeoutMs: 0, keepAliveIntervalMs: 30000, markOnlineOnConnect: true
+    version: ver.version, auth: auth.state, printQRInTerminal: false,
+    logger: pino({ level: "silent" }), browser: ["Ubuntu", "Chrome", "120.0.0.0"],
+    connectTimeoutMs: 60000, defaultQueryTimeoutMs: 0, keepAliveIntervalMs: 30000, markOnlineOnConnect: true,
+    syncFullHistory: false
   });
 
   sock.ev.on("creds.update", auth.saveCreds);
@@ -762,6 +763,25 @@ http.createServer(async function(req, res) {
     if (numRet) { humanTakeover.delete(numRet.replace(/[^0-9]/g, "") + "@s.whatsapp.net"); }
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, retomado: numRet }));
+  }
+  // ========== ADMIN: gerar codigo de pareamento (8 digitos) ==========
+  if (url.pathname === "/admin/pairing-code") {
+    (async function() {
+      try {
+        if (!sock || !sock.authState || sock.authState.creds.registered) {
+          res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+          return res.end(JSON.stringify({ ok: false, erro: "Ja registrado ou socket indisponivel. Faca /admin/reset-session primeiro." }));
+        }
+        var numero = (url.searchParams.get("num") || "5537988075561").replace(/[^0-9]/g, "");
+        var code = await sock.requestPairingCode(numero);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        return res.end(JSON.stringify({ ok: true, numero: numero, codigo: code, msg: "No WhatsApp: Aparelhos conectados > Conectar um aparelho > Conectar com numero de telefone. Digite o codigo." }));
+      } catch (e) {
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+        return res.end(JSON.stringify({ ok: false, erro: String(e && e.message || e) }));
+      }
+    })();
+    return;
   }
   // ========== ADMIN: reset completo da sessao WhatsApp ==========
   if (url.pathname === "/admin/reset-session") {
