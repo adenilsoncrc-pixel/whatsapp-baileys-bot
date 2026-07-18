@@ -12,26 +12,42 @@
       "numero": "5531991728565",
       "honorario_mensal": 480.00,
       "cod_controle": "HSN",
+      "pago_mes_atual": true,
+      "pago_em": "2026-07-07",
+      "situacao_financeira": "em_dia",
       "ativo": true,
-      "observacao": "Cobranca recorrente ativa - historico 23 meses pagos em dia"
+      "observacao": "23 meses de historico. Julho/2026 pago em 07/07 por boleto."
     },
     {
       "nome": "Guilherme",
+      "razao_social": "29.628.106 GUILHERME AMARAL ARAUJO",
       "empresa": "arplam",
+      "cnpj": "29.628.106/0001-16",
       "regime": "Simples Nacional",
       "numero": "5537988244336",
-      "honorario_mensal": null,
+      "honorario_mensal": 500.00,
+      "cod_controle": "HSN",
+      "pago_mes_atual": false,
+      "situacao_financeira": "inadimplente",
+      "meses_atrasados": ["06/2026", "07/2026"],
+      "valor_devido": 1000.00,
       "ativo": true,
-      "observacao": "Valor de honorario ainda nao informado"
+      "observacao": "ALERTA: 2 meses em aberto. Junho ATRASADO, Julho A RECEBER. Total devido: R$ 1.000,00"
     },
     {
       "nome": "Jhonatan",
+      "razao_social": "VIEPONSI CONSULTORIA E SERVICOS LTDA",
       "empresa": "VIEPONSI",
+      "cnpj": "62.214.384/0001-00",
       "regime": "Simples Nacional",
       "numero": "5537998357929",
-      "honorario_mensal": null,
+      "honorario_mensal": 900.00,
+      "cod_controle": "HSN",
+      "pago_mes_atual": true,
+      "pago_em": "2026-07-16",
+      "situacao_financeira": "em_dia",
       "ativo": true,
-      "observacao": "Valor de honorario ainda nao informado"
+      "observacao": "11 meses de historico. Julho/2026 pago em 16/07 por PIX."
     }
   ]
 }
