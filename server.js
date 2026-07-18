@@ -815,6 +815,48 @@ http.createServer(async function(req, res) {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, retomado: numRet }));
   }
+  // ========== ENVIO INDIVIDUAL (form + POST) ==========
+  if (url.pathname === "/admin/enviar-um") {
+    var html = "<!DOCTYPE html><html><head><meta charset=UTF-8><title>Envio Individual</title>" +
+      "<style>body{font-family:sans-serif;max-width:600px;margin:24px auto;padding:16px;background:#f7f7f9}h1{color:#0a5}input,textarea{width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:15px}textarea{min-height:200px}button{background:#0a5;color:#fff;padding:14px 24px;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:12px}</style></head><body>" +
+      "<h1>📩 Enviar mensagem individual</h1>" +
+      "<form method=POST action='/admin/enviar-um-exec'>" +
+      "<label>Numero (formato 5537988244336):<input name=numero required></label>" +
+      "<label>Mensagem:<textarea name=mensagem required></textarea></label>" +
+      "<label>Senha:<input type=password name=senha required></label>" +
+      "<button type=submit>📨 Enviar</button>" +
+      "</form></body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+  if (url.pathname === "/admin/enviar-um-exec" && req.method === "POST") {
+    var body2 = "";
+    req.on("data", function(chunk){ body2 += chunk.toString(); });
+    req.on("end", async function() {
+      var params = new URLSearchParams(body2);
+      var numero = (params.get("numero") || "").replace(/[^0-9]/g, "");
+      var mensagem = params.get("mensagem") || "";
+      var senha = params.get("senha") || "";
+      if (senha !== "adr2026") {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end("<h1 style='color:red;font-family:sans-serif'>Senha invalida</h1>");
+      }
+      if (!sock || !sock.user) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end("<h1 style='color:red;font-family:sans-serif'>WhatsApp desconectado</h1>");
+      }
+      try {
+        var jid = numero + "@s.whatsapp.net";
+        await sock.sendMessage(jid, { text: mensagem });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:#0a5'>✅ Enviado!</h1><p>Para: " + numero + "</p><p><a href='/admin/enviar-um'>Enviar outra</a></p></body></html>");
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:#c00'>❌ Falha</h1><p>" + String(e && e.message || e) + "</p></body></html>");
+      }
+    });
+    return;
+  }
   // ========== BROADCAST: formulario visual ==========
   if (url.pathname === "/admin/broadcast") {
     var clientes = carregarClientes();
