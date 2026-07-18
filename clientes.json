@@ -1,0 +1,30 @@
+{
+  "_comentario": "Lista de clientes ativos para disparo de mensagens. Formato JID: 55+DDD+numero (13 digitos - com o 9 na frente do celular)",
+  "_atualizado_em": "2026-07-17",
+  "clientes": [
+    {
+      "nome": "Marcus",
+      "empresa": "Contabilidade Mensal",
+      "regime": "Simples Nacional",
+      "numero": "5531991728565",
+      "ativo": true,
+      "observacao": ""
+    },
+    {
+      "nome": "Guilherme",
+      "empresa": "arplam",
+      "regime": "Simples Nacional",
+      "numero": "5537988244336",
+      "ativo": true,
+      "observacao": "Numero original: 37 8824-4336 - assumido celular com 9"
+    },
+    {
+      "nome": "Jhonatan",
+      "empresa": "VIEPONSI",
+      "regime": "Simples Nacional",
+      "numero": "5537998357929",
+      "ativo": true,
+      "observacao": "Numero original: 37 9835-7929 - assumido celular com 9"
+    }
+  ]
+}

@@ -8,6 +8,57 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const AUTH_DIR = path.join(__dirname, "auth_info");
+const CLIENTES_FILE = path.join(__dirname, "clientes.json");
+var broadcastStatus = { running: false, sent: 0, failed: 0, total: 0, ultimaMsg: "", iniciadoEm: null, terminadoEm: null, erros: [] };
+
+function carregarClientes() {
+  try {
+    if (fs.existsSync(CLIENTES_FILE)) {
+      var data = JSON.parse(fs.readFileSync(CLIENTES_FILE, "utf-8"));
+      return (data.clientes || []).filter(function(c) { return c.ativo !== false; });
+    }
+  } catch (e) { console.log("[clientes.json] erro:", e.message); }
+  return [];
+}
+
+async function dispararBroadcast(mensagem, senha) {
+  if (broadcastStatus.running) return { ok: false, erro: "Ja existe um disparo em andamento" };
+  if (senha !== "adr2026") return { ok: false, erro: "Senha invalida" };
+  if (!sock || !sock.user) return { ok: false, erro: "WhatsApp desconectado" };
+  var clientes = carregarClientes();
+  if (!clientes.length) return { ok: false, erro: "Nenhum cliente ativo" };
+
+  broadcastStatus = { running: true, sent: 0, failed: 0, total: clientes.length, ultimaMsg: mensagem.substring(0,80), iniciadoEm: new Date().toISOString(), terminadoEm: null, erros: [] };
+
+  (async function() {
+    for (var i = 0; i < clientes.length; i++) {
+      var cli = clientes[i];
+      var jid = cli.numero + "@s.whatsapp.net";
+      var texto = mensagem
+        .replace(/\{nome\}/g, cli.nome || "")
+        .replace(/\{empresa\}/g, cli.empresa || "")
+        .replace(/\{regime\}/g, cli.regime || "");
+      try {
+        await sock.sendMessage(jid, { text: texto });
+        broadcastStatus.sent++;
+        console.log("[BROADCAST] enviado para " + cli.nome + " (" + cli.numero + ")");
+      } catch (e) {
+        broadcastStatus.failed++;
+        broadcastStatus.erros.push({ nome: cli.nome, erro: String(e && e.message || e) });
+        console.log("[BROADCAST] FALHA " + cli.nome + ": " + (e && e.message));
+      }
+      if (i < clientes.length - 1) {
+        var delay = 20000 + Math.floor(Math.random() * 20000);
+        await new Promise(function(r){ setTimeout(r, delay); });
+      }
+    }
+    broadcastStatus.running = false;
+    broadcastStatus.terminadoEm = new Date().toISOString();
+    console.log("[BROADCAST] concluido. enviados=" + broadcastStatus.sent + " falhas=" + broadcastStatus.failed);
+  })();
+
+  return { ok: true, msg: "Disparo iniciado para " + clientes.length + " clientes. Acompanhe em /admin/broadcast-status" };
+}
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const PROTOCOLS_FILE = path.join(__dirname, "protocolos.json");
 
@@ -764,6 +815,65 @@ http.createServer(async function(req, res) {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, retomado: numRet }));
   }
+  // ========== BROADCAST: formulario visual ==========
+  if (url.pathname === "/admin/broadcast") {
+    var clientes = carregarClientes();
+    var listaHtml = clientes.map(function(c){ return "<li>" + c.nome + " - " + (c.empresa||"") + " (" + c.numero + ")</li>"; }).join("");
+    var html = "<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><title>ADR - Disparo em Massa</title>" +
+      "<meta name=viewport content='width=device-width,initial-scale=1'>" +
+      "<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:24px auto;padding:0 16px;background:#f7f7f9;color:#222}h1{color:#0a5}h2{margin-top:32px}textarea{width:100%;min-height:180px;padding:12px;font-size:15px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box}input[type=password]{padding:10px;border:1px solid #ccc;border-radius:6px;width:200px}button{background:#0a5;color:#fff;border:none;padding:14px 28px;font-size:16px;border-radius:6px;cursor:pointer;margin-top:12px}button:hover{background:#083}.aviso{background:#fff8dc;border-left:4px solid #d90;padding:10px 14px;margin:16px 0;border-radius:4px}ul{background:#fff;padding:12px 12px 12px 32px;border-radius:6px}.exemplo{background:#eef;padding:10px;border-radius:4px;font-family:monospace;font-size:13px;white-space:pre-wrap}</style></head><body>" +
+      "<h1>📢 Disparo em Massa - ADR Contabilidade</h1>" +
+      "<div class=aviso><strong>⚠️ Cuidados:</strong><br>• Envie no maximo 1x por semana<br>• Nao envie ofertas ou spam<br>• Personalize com {nome}, {empresa} e {regime}<br>• Envio leva ~20-40s entre cada cliente (evita banimento)</div>" +
+      "<h2>Clientes ativos (" + clientes.length + ")</h2><ul>" + listaHtml + "</ul>" +
+      "<h2>Mensagem</h2>" +
+      "<p>Variaveis disponiveis: <code>{nome}</code>, <code>{empresa}</code>, <code>{regime}</code></p>" +
+      "<div class=exemplo>Exemplo:\nOla {nome}! Da {empresa}.\n\nLembramos que a data de vencimento do DAS ({regime}) do mes eh dia 20.\n\nATT, Adenilson Ribeiro - ADR Contabilidade</div>" +
+      "<form method=POST action='/admin/broadcast-enviar' style='margin-top:16px'>" +
+      "<textarea name=mensagem placeholder='Digite a mensagem aqui...' required></textarea><br>" +
+      "<label>Senha: <input type=password name=senha required></label><br>" +
+      "<button type=submit>🚀 DISPARAR PARA " + clientes.length + " CLIENTES</button>" +
+      "</form>" +
+      "<p style='margin-top:24px'><a href='/admin/broadcast-status'>Ver status do ultimo disparo</a></p>" +
+      "</body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
+  // ========== BROADCAST: executar ==========
+  if (url.pathname === "/admin/broadcast-enviar" && req.method === "POST") {
+    var body = "";
+    req.on("data", function(chunk){ body += chunk.toString(); });
+    req.on("end", async function() {
+      var params = new URLSearchParams(body);
+      var mensagem = params.get("mensagem") || "";
+      var senha = params.get("senha") || "";
+      var resultado = await dispararBroadcast(mensagem, senha);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      var cor = resultado.ok ? "#0a5" : "#c00";
+      res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:" + cor + "'>" + (resultado.ok ? "✅ Disparo iniciado" : "❌ Erro") + "</h1><p>" + (resultado.msg || resultado.erro) + "</p><p><a href='/admin/broadcast-status'>Acompanhar status</a> | <a href='/admin/broadcast'>Voltar</a></p></body></html>");
+    });
+    return;
+  }
+
+  // ========== BROADCAST: status ==========
+  if (url.pathname === "/admin/broadcast-status") {
+    var html = "<!DOCTYPE html><html><head><meta charset=UTF-8><title>Status</title>" +
+      "<meta http-equiv=refresh content=5><style>body{font-family:sans-serif;max-width:600px;margin:24px auto;padding:16px}.stat{background:#eef;padding:16px;border-radius:6px;margin:10px 0}</style></head><body>" +
+      "<h1>Status do Disparo</h1>" +
+      "<div class=stat><strong>Rodando:</strong> " + (broadcastStatus.running ? "SIM" : "NAO") + "</div>" +
+      "<div class=stat><strong>Enviados:</strong> " + broadcastStatus.sent + " / " + broadcastStatus.total + "</div>" +
+      "<div class=stat><strong>Falhas:</strong> " + broadcastStatus.failed + "</div>" +
+      "<div class=stat><strong>Iniciado:</strong> " + (broadcastStatus.iniciadoEm || "nunca") + "</div>" +
+      "<div class=stat><strong>Terminado:</strong> " + (broadcastStatus.terminadoEm || "em andamento") + "</div>" +
+      "<div class=stat><strong>Ultima mensagem:</strong> " + (broadcastStatus.ultimaMsg || "-") + "</div>" +
+      (broadcastStatus.erros.length ? "<div class=stat><strong>Erros:</strong><ul>" + broadcastStatus.erros.map(function(e){return "<li>"+e.nome+": "+e.erro+"</li>";}).join("") + "</ul></div>" : "") +
+      "<p><a href='/admin/broadcast'>Novo disparo</a></p>" +
+      (broadcastStatus.running ? "<p style=color:#888>Atualizando a cada 5s...</p>" : "") +
+      "</body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
   // ========== ADMIN: gerar codigo de pareamento (8 digitos) ==========
   if (url.pathname === "/admin/pairing-code") {
     (async function() {
