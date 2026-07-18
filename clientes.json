@@ -1,30 +1,37 @@
 {
-  "_comentario": "Lista de clientes ativos para disparo de mensagens. Formato JID: 55+DDD+numero (13 digitos - com o 9 na frente do celular)",
+  "_comentario": "Lista de clientes ativos. Todos vencem honorarios no dia 20 de cada mes.",
   "_atualizado_em": "2026-07-17",
+  "_dia_vencimento_honorarios": 20,
   "clientes": [
     {
       "nome": "Marcus",
+      "razao_social": "MARCUS JOSE DA SILVA ANGELO 36230928604",
       "empresa": "Contabilidade Mensal",
+      "cnpj": "32.171.768/0001-14",
       "regime": "Simples Nacional",
       "numero": "5531991728565",
+      "honorario_mensal": 480.00,
+      "cod_controle": "HSN",
       "ativo": true,
-      "observacao": ""
+      "observacao": "Cobranca recorrente ativa - historico 23 meses pagos em dia"
     },
     {
       "nome": "Guilherme",
       "empresa": "arplam",
       "regime": "Simples Nacional",
       "numero": "5537988244336",
+      "honorario_mensal": null,
       "ativo": true,
-      "observacao": "Numero original: 37 8824-4336 - assumido celular com 9"
+      "observacao": "Valor de honorario ainda nao informado"
     },
     {
       "nome": "Jhonatan",
       "empresa": "VIEPONSI",
       "regime": "Simples Nacional",
       "numero": "5537998357929",
+      "honorario_mensal": null,
       "ativo": true,
-      "observacao": "Numero original: 37 9835-7929 - assumido celular com 9"
+      "observacao": "Valor de honorario ainda nao informado"
     }
   ]
 }
