@@ -1,6 +1,6 @@
 const http = require("http");
 const https = require("https");
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, decryptPollVote } = require("@whiskeysockets/baileys");
 const QRCode = require("qrcode");
 const pino = require("pino");
 const fs = require("fs");
@@ -10,6 +10,218 @@ const PORT = process.env.PORT || 3000;
 const AUTH_DIR = path.join(__dirname, "auth_info");
 const CLIENTES_FILE = path.join(__dirname, "clientes.json");
 var broadcastStatus = { running: false, sent: 0, failed: 0, total: 0, ultimaMsg: "", iniciadoEm: null, terminadoEm: null, erros: [] };
+var schedulerLog = [];
+var ultimoDisparoAgendado = {};
+var enquetesEnviadas = {}; // { pollId: { cliente_numero, nome, tipo, opcoes, respondeu, resposta, respondidoEm } }
+
+// Templates de enquete (poll)
+var TEMPLATES_ENQUETE = {
+  dia15: {
+    name: "[ADR Contabil] {nome}, sobre o honorario ({mes}/{ano} - vence dia 20):",
+    values: ["Ja paguei", "Vou pagar ate dia 20", "Vou atrasar - avisar depois"]
+  },
+  dia20: {
+    name: "[ADR Contabil] {nome}, hoje vence o honorario contabil ({mes}/{ano}). Ja pagou?",
+    values: ["Sim, ja paguei hoje", "Vou pagar ate o final do dia", "Vou atrasar - te aviso quando pagar"]
+  },
+  dia5: {
+    name: "[ADR Contabil] {nome}, ja me enviou os documentos de {mesAnterior}/{anoMesAnt} da {empresa}?",
+    values: ["Sim, ja enviei", "Envio ate o final da semana", "Nao tive movimento no mes"]
+  },
+  dia25: {
+    name: "[ADR Contabil] {nome}, me envie os documentos de {mes}/{ano} da {empresa} para fechar o mes:",
+    values: ["Ja enviei", "Envio ate dia 30", "Nao tive movimento neste mes"]
+  }
+};
+
+// ============ TEMPLATES DE LEMBRETES AUTOMATICOS ============
+var TEMPLATES_LEMBRETE = {
+  dia5: "Ola {nome}! Bom dia.\n\nPassando para lembrar que ainda estou aguardando os documentos referentes ao mes anterior (junho/{ano}) para fechar a contabilidade da {empresa}:\n\n✓ Notas fiscais emitidas\n✓ Extrato bancario\n✓ Comprovantes de despesas\n\nSe ja enviou, pode desconsiderar. Qualquer coisa, estou a disposicao.\n\nATT,\nAdenilson Ribeiro\nContador CRC/MG 111.185\nA.D.R. Contabilidade",
+  dia15: "Ola {nome}! Bom dia.\n\nLembrete: o vencimento do DAS do Simples Nacional da {empresa} sera dia 20/{mes}/{ano} (proxima {diaSemana20}).\n\nSe precisar da guia, me avise que envio. Se ja gerou pelo PGDAS-D, tudo certo.\n\nATT,\nAdenilson Ribeiro\nContador CRC/MG 111.185\nA.D.R. Contabilidade",
+  dia20: "Ola {nome}!\n\nHoje eh o vencimento do honorario contabil ({mes}/{ano}) referente aos servicos prestados a {empresa}.\n\nSe ainda nao efetuou o pagamento, favor regularizar hoje. Boleto foi enviado por e-mail. Aceito PIX tambem - me avise que envio a chave.\n\nSe ja pagou e nao dei baixa, favor encaminhar o comprovante.\n\nATT,\nAdenilson Ribeiro\nContador CRC/MG 111.185\nA.D.R. Contabilidade",
+  dia25: "Ola {nome}!\n\nEstamos na segunda quinzena de {mes}/{ano}. Para fechar a contabilidade do mes da {empresa}, ainda preciso receber (caso ja nao tenha enviado):\n\n✓ Notas fiscais emitidas em {mes}/{ano}\n✓ Extrato bancario do mes\n✓ Comprovantes de despesas\n\nPode enviar aqui pelo WhatsApp ou por e-mail. Prazo ideal: ate dia 30.\n\nQualquer duvida, estou a disposicao.\n\nATT,\nAdenilson Ribeiro\nContador CRC/MG 111.185\nA.D.R. Contabilidade"
+};
+
+var MESES_PT = ["janeiro","fevereiro","marco","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+var DIAS_SEMANA_PT = ["domingo","segunda-feira","terca-feira","quarta-feira","quinta-feira","sexta-feira","sabado"];
+
+function dataAtualBR() {
+  var d = new Date(Date.now() - 3*3600*1000);
+  return { dia: d.getUTCDate(), mes: d.getUTCMonth()+1, ano: d.getUTCFullYear(), hora: d.getUTCHours(), diaSemana: d.getUTCDay() };
+}
+
+function salvarClientes(dados) {
+  try {
+    fs.writeFileSync(CLIENTES_FILE, JSON.stringify(dados, null, 2));
+    return true;
+  } catch (e) { console.log("[salvarClientes] erro:", e.message); return false; }
+}
+
+function lerClientesFull() {
+  try {
+    if (fs.existsSync(CLIENTES_FILE)) return JSON.parse(fs.readFileSync(CLIENTES_FILE, "utf-8"));
+  } catch(e){}
+  return { clientes: [] };
+}
+
+async function enviarEnqueteAutomatica(tipoTemplate, filtroPago) {
+  if (!sock || !sock.user) { schedulerLog.push({ hora: new Date().toISOString(), tipo: tipoTemplate+"_ENQUETE", erro: "WhatsApp desconectado" }); return; }
+  var dados = lerClientesFull();
+  var clientes = (dados.clientes || []).filter(function(c) { return c.ativo !== false; });
+  var data = dataAtualBR();
+  var mesAnt = data.mes === 1 ? 12 : data.mes-1;
+  var anoMesAnt = data.mes === 1 ? data.ano-1 : data.ano;
+  var tmpl = TEMPLATES_ENQUETE[tipoTemplate];
+  if (!tmpl) return;
+  var enviados = 0, pulados = 0, falhas = 0;
+
+  for (var i = 0; i < clientes.length; i++) {
+    var cli = clientes[i];
+    if (filtroPago === "nao_pago" && cli.pago_mes_atual === true) { pulados++; continue; }
+    if (filtroPago === "docs_pendentes" && cli.docs_enviados_mes === true) { pulados++; continue; }
+
+    var pergunta = tmpl.name
+      .replace(/\{nome\}/g, cli.nome || "")
+      .replace(/\{empresa\}/g, cli.empresa || "")
+      .replace(/\{mes\}/g, String(data.mes).padStart(2,"0"))
+      .replace(/\{ano\}/g, data.ano)
+      .replace(/\{mesAnterior\}/g, String(mesAnt).padStart(2,"0"))
+      .replace(/\{anoMesAnt\}/g, anoMesAnt);
+    try {
+      var jid = cli.numero + "@s.whatsapp.net";
+      var sent = await sock.sendMessage(jid, {
+        poll: { name: pergunta, values: tmpl.values, selectableCount: 1 }
+      });
+      if (sent && sent.key && sent.key.id) {
+        var pollEncKey = null;
+        try {
+          if (sent.message && sent.message.pollCreationMessage && sent.message.pollCreationMessage.encKey) {
+            pollEncKey = sent.message.pollCreationMessage.encKey;
+          } else if (sent.message && sent.message.messageContextInfo && sent.message.messageContextInfo.messageSecret) {
+            pollEncKey = sent.message.messageContextInfo.messageSecret;
+          }
+        } catch(e) {}
+        enquetesEnviadas[sent.key.id] = {
+          cliente_numero: cli.numero, nome: cli.nome, empresa: cli.empresa,
+          tipo: tipoTemplate, pergunta: pergunta, opcoes: tmpl.values,
+          respondeu: false, resposta: null, enviadoEm: new Date().toISOString(),
+          pollEncKey: pollEncKey, pollCreationMessage: sent.message
+        };
+      }
+      enviados++;
+      console.log("[ENQUETE " + tipoTemplate + "] enviada para " + cli.nome);
+    } catch (e) { falhas++; console.log("[ENQUETE " + tipoTemplate + "] FALHA " + cli.nome + ": " + e.message); }
+    if (i < clientes.length-1) await new Promise(function(r){ setTimeout(r, 25000 + Math.random()*15000); });
+  }
+  schedulerLog.push({ hora: new Date().toISOString(), tipo: tipoTemplate+"_ENQUETE", enviados: enviados, pulados: pulados, falhas: falhas });
+  if (schedulerLog.length > 50) schedulerLog = schedulerLog.slice(-50);
+}
+
+// Processa voto de enquete e atualiza cadastro do cliente
+function processarVotoEnquete(pollId, votoIndex, clientJid) {
+  var enq = enquetesEnviadas[pollId];
+  if (!enq) return;
+  var opcao = enq.opcoes[votoIndex];
+  enq.respondeu = true;
+  enq.resposta = opcao;
+  enq.respondidoEm = new Date().toISOString();
+
+  var dados = lerClientesFull();
+  var cli = (dados.clientes || []).find(function(c){ return c.numero === enq.cliente_numero; });
+  if (cli) {
+    // Se enquete de pagamento e cliente respondeu "Ja paguei", marca como pago
+    if ((enq.tipo === "dia15" || enq.tipo === "dia20") && votoIndex === 0) {
+      cli.pago_mes_atual = true;
+      cli.pago_em = new Date().toISOString().substring(0,10);
+      cli.confirmado_por_enquete = true;
+    }
+    // Se enquete de docs e cliente respondeu "Ja enviei", marca como enviado
+    if ((enq.tipo === "dia5" || enq.tipo === "dia25") && (votoIndex === 0 || votoIndex === 2)) {
+      cli.docs_enviados_mes = true;
+      cli.docs_status_por_enquete = opcao;
+    }
+    cli.ultima_resposta_enquete = { tipo: enq.tipo, resposta: opcao, em: enq.respondidoEm };
+    salvarClientes(dados);
+  }
+  console.log("[ENQUETE-VOTO] " + enq.nome + " respondeu: " + opcao);
+}
+
+async function enviarLembreteAutomatico(tipoTemplate, filtroPago) {
+  if (!sock || !sock.user) { schedulerLog.push({ hora: new Date().toISOString(), tipo: tipoTemplate, erro: "WhatsApp desconectado" }); return; }
+  var dados = lerClientesFull();
+  var clientes = (dados.clientes || []).filter(function(c) { return c.ativo !== false; });
+  var data = dataAtualBR();
+  var diaSemana20 = DIAS_SEMANA_PT[(new Date(Date.UTC(data.ano, data.mes-1, 20)).getUTCDay())];
+  var template = TEMPLATES_LEMBRETE[tipoTemplate];
+  var enviados = 0, pulados = 0, falhas = 0;
+
+  for (var i = 0; i < clientes.length; i++) {
+    var cli = clientes[i];
+    // Filtro: dia20 so envia pra quem NAO pagou
+    if (filtroPago === "nao_pago" && cli.pago_mes_atual === true) { pulados++; continue; }
+    // Filtro: dia5/dia25 - opcional docs_enviados_mes
+    if (filtroPago === "docs_pendentes" && cli.docs_enviados_mes === true) { pulados++; continue; }
+
+    var texto = template
+      .replace(/\{nome\}/g, cli.nome || "")
+      .replace(/\{empresa\}/g, cli.empresa || "")
+      .replace(/\{regime\}/g, cli.regime || "")
+      .replace(/\{mes\}/g, String(data.mes).padStart(2,"0"))
+      .replace(/\{ano\}/g, data.ano)
+      .replace(/\{diaSemana20\}/g, diaSemana20);
+    try {
+      await sock.sendMessage(cli.numero + "@s.whatsapp.net", { text: texto });
+      enviados++;
+      console.log("[SCHED " + tipoTemplate + "] enviado " + cli.nome);
+    } catch (e) { falhas++; console.log("[SCHED " + tipoTemplate + "] FALHA " + cli.nome + ": " + e.message); }
+    if (i < clientes.length-1) await new Promise(function(r){ setTimeout(r, 25000 + Math.random()*15000); });
+  }
+  schedulerLog.push({ hora: new Date().toISOString(), tipo: tipoTemplate, enviados: enviados, pulados: pulados, falhas: falhas });
+  if (schedulerLog.length > 50) schedulerLog = schedulerLog.slice(-50);
+}
+
+function resetarMesAtual() {
+  var dados = lerClientesFull();
+  (dados.clientes || []).forEach(function(c) { c.pago_mes_atual = false; c.docs_enviados_mes = false; delete c.pago_em; });
+  dados._ultimo_reset = new Date().toISOString();
+  salvarClientes(dados);
+  console.log("[SCHED] reset mensal executado - todos marcados como nao pago");
+  schedulerLog.push({ hora: new Date().toISOString(), tipo: "reset_mensal", msg: "Todos os clientes voltaram a status nao pago" });
+}
+
+// Scheduler roda a cada 30 minutos verificando se eh hora de disparar
+setInterval(function() {
+  var d = dataAtualBR();
+  var chave = d.ano + "-" + d.mes + "-" + d.dia + "_h" + d.hora;
+
+  // Reset mensal - dia 1 as 6h
+  if (d.dia === 1 && d.hora === 6 && !ultimoDisparoAgendado["reset_" + d.ano + "_" + d.mes]) {
+    ultimoDisparoAgendado["reset_" + d.ano + "_" + d.mes] = true;
+    resetarMesAtual();
+  }
+  // Dia 5 - cobrar docs mes anterior - ENQUETE
+  if (d.dia === 5 && d.hora === 9 && !ultimoDisparoAgendado["dia5_" + chave]) {
+    ultimoDisparoAgendado["dia5_" + chave] = true;
+    enviarEnqueteAutomatica("dia5", "docs_pendentes");
+  }
+  // Dia 15 - aviso previo
+  if (d.dia === 15 && d.hora === 9 && !ultimoDisparoAgendado["dia15_" + chave]) {
+    ultimoDisparoAgendado["dia15_" + chave] = true;
+    enviarEnqueteAutomatica("dia15", null);
+  }
+  // Dia 20 - dia do vencimento (so nao pagos) - ENQUETE
+  if (d.dia === 20 && d.hora === 9 && !ultimoDisparoAgendado["dia20_" + chave]) {
+    ultimoDisparoAgendado["dia20_" + chave] = true;
+    enviarEnqueteAutomatica("dia20", "nao_pago");
+  }
+  // Dia 25 - cobrar docs mes atual - ENQUETE
+  if (d.dia === 25 && d.hora === 9 && !ultimoDisparoAgendado["dia25_" + chave]) {
+    ultimoDisparoAgendado["dia25_" + chave] = true;
+    enviarEnqueteAutomatica("dia25", "docs_pendentes");
+  }
+  // Dia 5 - cobrar docs mes anterior - ENQUETE (subsituir texto)
+  // ja tratado acima como texto; agora vamos usar enquete tambem:
+}, 1800000); // 30 min
 
 function carregarClientes() {
   try {
@@ -483,10 +695,87 @@ async function startBot() {
     if (u.connection === "open") { connectionStatus = "connected"; latestQR = null; console.log("Bot conectado!"); }
   });
 
+  // Receptor de votos de enquete
+  sock.ev.on("messages.update", async function(updates) {
+    for (var u = 0; u < updates.length; u++) {
+      var upd = updates[u];
+      try {
+        if (upd.update && upd.update.pollUpdates && upd.update.pollUpdates.length) {
+          var pollId = upd.key.id;
+          var pu = upd.update.pollUpdates[upd.update.pollUpdates.length - 1];
+          // Pega o indice votado (aggregate)
+          var voto = pu.vote && pu.vote.selectedOptions;
+          if (voto && voto.length) {
+            var enq = enquetesEnviadas[pollId];
+            if (enq) {
+              // pega o indice da opcao pelo texto
+              var opcaoTexto = voto[0].toString();
+              var idx = enq.opcoes.indexOf(opcaoTexto);
+              if (idx >= 0) processarVotoEnquete(pollId, idx, upd.key.remoteJid);
+            }
+          }
+        }
+      } catch (err) { console.log("[messages.update] erro:", err.message); }
+    }
+  });
+
   sock.ev.on("messages.upsert", async function(ev) {
     if (ev.type !== "notify") return;
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
+      // Voto de enquete chega em messages.upsert como pollUpdateMessage
+      try {
+        var pollUpdateMsg = msg.message && msg.message.pollUpdateMessage;
+        if (pollUpdateMsg && pollUpdateMsg.pollCreationMessageKey) {
+          var pollId = pollUpdateMsg.pollCreationMessageKey.id;
+          var enq = enquetesEnviadas[pollId];
+          if (enq) {
+            var opcaoTexto = "voto recebido";
+            var idx = -1;
+            // Tentar decodificar voto criptografado
+            try {
+              if (typeof decryptPollVote === "function" && enq.pollCreationMessage) {
+                var decoded = decryptPollVote(pollUpdateMsg.vote, {
+                  pollCreatorJid: sock.user.id.split(":")[0] + "@s.whatsapp.net",
+                  pollMsgId: pollId,
+                  pollEncKey: enq.pollEncKey,
+                  voterJid: msg.key.remoteJid
+                });
+                if (decoded && decoded.selectedOptions && decoded.selectedOptions.length) {
+                  // selectedOptions eh um array de hashes SHA256 das opcoes
+                  var crypto = require("crypto");
+                  for (var oi = 0; oi < enq.opcoes.length; oi++) {
+                    var hash = crypto.createHash("sha256").update(enq.opcoes[oi]).digest();
+                    if (hash.equals(decoded.selectedOptions[0])) { idx = oi; opcaoTexto = enq.opcoes[oi]; break; }
+                  }
+                }
+              }
+            } catch(dec) { console.log("[decrypt-poll] " + dec.message); }
+
+            enq.respondeu = true;
+            enq.resposta = opcaoTexto;
+            enq.respondidoEm = new Date().toISOString();
+            var dados = lerClientesFull();
+            var cli = (dados.clientes || []).find(function(c){ return c.numero === enq.cliente_numero; });
+            if (cli) {
+              if (idx >= 0) {
+                if ((enq.tipo === "dia15" || enq.tipo === "dia20") && idx === 0) {
+                  cli.pago_mes_atual = true;
+                  cli.pago_em = new Date().toISOString().substring(0,10);
+                  cli.confirmado_por_enquete = true;
+                }
+                if ((enq.tipo === "dia5" || enq.tipo === "dia25") && (idx === 0 || idx === 2)) {
+                  cli.docs_enviados_mes = true;
+                }
+              }
+              cli.ultima_resposta_enquete = { tipo: enq.tipo, resposta: opcaoTexto, em: enq.respondidoEm };
+              salvarClientes(dados);
+            }
+            console.log("[ENQUETE-VOTO] " + enq.nome + " -> " + opcaoTexto);
+          }
+          continue;
+        }
+      } catch(err) { console.log("[poll-upsert] erro:", err.message); }
       // Detectar mensagem manual do Adenilson (fromMe) para ativar pausa humana
       if (msg.key.fromMe) {
         if (msg.key.remoteJid !== "status@broadcast" && !msg.key.remoteJid.endsWith("@g.us")) {
@@ -815,6 +1104,139 @@ http.createServer(async function(req, res) {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, retomado: numRet }));
   }
+  // ========== GESTAO DE CLIENTES (marcar pago/docs) ==========
+  if (url.pathname === "/admin/clientes") {
+    var dados = lerClientesFull();
+    var clientes = dados.clientes || [];
+    var d = dataAtualBR();
+    var linhas = clientes.map(function(c){
+      var statusPago = c.pago_mes_atual === true ? "<span style=color:#0a5;font-weight:bold>PAGO</span>" : "<span style=color:#c00;font-weight:bold>NAO PAGO</span>";
+      var statusDocs = c.docs_enviados_mes === true ? "<span style=color:#0a5;font-weight:bold>SIM</span>" : "<span style=color:#c00;font-weight:bold>NAO</span>";
+      var acaoPago = c.pago_mes_atual === true
+        ? "<a href='/admin/marcar?num="+c.numero+"&campo=pago&valor=false' style='background:#eee;padding:6px 10px;border-radius:4px;text-decoration:none;color:#333'>Reverter</a>"
+        : "<a href='/admin/marcar?num="+c.numero+"&campo=pago&valor=true' style='background:#0a5;color:#fff;padding:6px 10px;border-radius:4px;text-decoration:none'>Marcar pago</a>";
+      var acaoDocs = c.docs_enviados_mes === true
+        ? "<a href='/admin/marcar?num="+c.numero+"&campo=docs&valor=false' style='background:#eee;padding:6px 10px;border-radius:4px;text-decoration:none;color:#333'>Reverter</a>"
+        : "<a href='/admin/marcar?num="+c.numero+"&campo=docs&valor=true' style='background:#08a;color:#fff;padding:6px 10px;border-radius:4px;text-decoration:none'>Marcou docs</a>";
+      return "<tr><td>"+c.nome+"<br><small>"+(c.empresa||"")+"</small></td><td>R$ "+(c.honorario_mensal||"?")+"</td><td style=text-align:center>"+statusPago+"<br>"+acaoPago+"</td><td style=text-align:center>"+statusDocs+"<br>"+acaoDocs+"</td></tr>";
+    }).join("");
+
+    var logHtml = schedulerLog.slice(-10).reverse().map(function(l){
+      return "<li>"+l.hora.substring(0,16).replace("T"," ")+" - "+l.tipo+": "+(l.erro || ("enviados="+(l.enviados||0)+" pulados="+(l.pulados||0)+" falhas="+(l.falhas||0)))+"</li>";
+    }).join("");
+
+    var html = "<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><title>Gestao de Clientes</title>" +
+      "<meta name=viewport content='width=device-width,initial-scale=1'>" +
+      "<style>body{font-family:system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 12px;background:#f5f5f7}h1{color:#0a5;margin-bottom:6px}h2{margin-top:24px}table{width:100%;border-collapse:collapse;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.1)}th,td{padding:12px 8px;border-bottom:1px solid #eee;text-align:left}th{background:#f0f2f4;font-weight:600}small{color:#666}.info{background:#eef;padding:12px 16px;border-left:4px solid #08a;border-radius:4px;margin:12px 0}.log{background:#fff;padding:12px;border-radius:6px;font-size:13px;font-family:monospace}</style></head><body>" +
+      "<h1>📊 Gestao dos clientes - " + String(d.mes).padStart(2,"0") + "/" + d.ano + "</h1>" +
+      "<div class=info><strong>Como usar:</strong> Quando receber pagamento do cliente, clique em <b>Marcar pago</b>. Quando ele enviar os documentos do mes, clique em <b>Marcou docs</b>. Dia 1º do proximo mes tudo reseta automaticamente.</div>" +
+      "<table><thead><tr><th>Cliente</th><th>Honorario</th><th>Pago "+String(d.mes).padStart(2,"0")+"/"+d.ano+"?</th><th>Docs enviados?</th></tr></thead><tbody>" + linhas + "</tbody></table>" +
+      "<h2>🗓️ Agenda de disparos automaticos</h2>" +
+      "<ul style='background:#fff;padding:16px 16px 16px 36px;border-radius:6px'>" +
+      "<li>Dia 05 as 9h - Cobrar documentos do mes anterior (so quem nao enviou)</li>" +
+      "<li>Dia 15 as 9h - Aviso previo do vencimento (todos)</li>" +
+      "<li>Dia 20 as 9h - Alerta de vencimento (SO quem nao pagou)</li>" +
+      "<li>Dia 25 as 9h - Cobrar documentos do mes atual (so quem nao enviou)</li>" +
+      "<li>Dia 01 as 6h - Reset mensal automatico</li>" +
+      "</ul>" +
+      "<h2>📜 Log dos ultimos disparos</h2>" +
+      "<div class=log><ul style='padding-left:20px'>" + (logHtml || "<li>Nenhum disparo automatico executado ainda</li>") + "</ul></div>" +
+      "<p style='margin-top:24px'><a href='/admin/enquetes'>📊 Enquetes em tempo real</a> | <a href='/admin/broadcast'>Disparo manual</a> | <a href='/admin/enviar-um'>Enviar individual</a></p>" +
+      "</body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
+  if (url.pathname === "/admin/marcar") {
+    var num = url.searchParams.get("num");
+    var campo = url.searchParams.get("campo");
+    var valor = url.searchParams.get("valor") === "true";
+    var dados = lerClientesFull();
+    var cli = (dados.clientes || []).find(function(c){ return c.numero === num; });
+    if (cli) {
+      if (campo === "pago") {
+        cli.pago_mes_atual = valor;
+        if (valor) cli.pago_em = new Date().toISOString().substring(0,10);
+      }
+      if (campo === "docs") cli.docs_enviados_mes = valor;
+      salvarClientes(dados);
+    }
+    res.writeHead(302, { Location: "/admin/clientes" });
+    return res.end();
+  }
+
+  // ========== ENQUETES: MONITOR EM TEMPO REAL ==========
+  if (url.pathname === "/admin/enquetes") {
+    var pids = Object.keys(enquetesEnviadas);
+    var linhas = pids.map(function(pid){
+      var e = enquetesEnviadas[pid];
+      var status = e.respondeu
+        ? "<span style=color:#0a5;font-weight:bold>RESPONDEU</span><br><small>"+e.resposta+"</small>"
+        : "<span style=color:#999>aguardando</span>";
+      var horaEnv = e.enviadoEm.substring(11,16);
+      var horaResp = e.respondidoEm ? e.respondidoEm.substring(11,16) : "-";
+      return "<tr><td>"+e.nome+"<br><small>"+e.tipo+"</small></td><td><small>"+e.pergunta.substring(0,80)+"...</small></td><td style=text-align:center>"+horaEnv+"</td><td style=text-align:center>"+horaResp+"</td><td>"+status+"</td></tr>";
+    }).reverse().join("");
+    var html = "<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><meta http-equiv=refresh content=15><title>Enquetes em tempo real</title>" +
+      "<style>body{font-family:system-ui,sans-serif;max-width:1000px;margin:20px auto;padding:0 12px;background:#f5f5f7}h1{color:#0a5}table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#f0f2f4}small{color:#666}</style></head><body>" +
+      "<h1>📊 Enquetes em tempo real</h1>" +
+      "<p><small>Pagina atualiza a cada 15s automaticamente. Total: "+pids.length+" enquetes.</small></p>" +
+      "<table><thead><tr><th>Cliente</th><th>Pergunta</th><th>Enviado</th><th>Respondeu</th><th>Status</th></tr></thead><tbody>" +
+      (linhas || "<tr><td colspan=5 style=text-align:center;padding:24px;color:#999>Nenhuma enquete enviada ainda</td></tr>") +
+      "</tbody></table>" +
+      "<p style='margin-top:20px'><a href='/admin/clientes'>← Gestao clientes</a> | <a href='/admin/testar-enquete?tipo=dia20&senha=adr2026'>Testar enquete dia 20</a></p>" +
+      "</body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
+  // ========== TESTE MANUAL DE ENQUETE ==========
+  if (url.pathname === "/admin/testar-enquete") {
+    var tipo = url.searchParams.get("tipo");
+    var senha = url.searchParams.get("senha");
+    var num = url.searchParams.get("num"); // opcional - envia so pra um numero
+    if (senha !== "adr2026") { res.writeHead(403); return res.end("Senha invalida"); }
+    if (!TEMPLATES_ENQUETE[tipo]) { res.writeHead(400); return res.end("Tipo invalido. Use: dia5, dia15, dia20, dia25"); }
+    if (num) {
+      // Envia so pra um cliente
+      (async function(){
+        var dados = lerClientesFull();
+        var cli = (dados.clientes || []).find(function(c){ return c.numero === num; });
+        if (!cli) return;
+        var d = dataAtualBR();
+        var mesAnt = d.mes === 1 ? 12 : d.mes-1;
+        var anoMesAnt = d.mes === 1 ? d.ano-1 : d.ano;
+        var tmpl = TEMPLATES_ENQUETE[tipo];
+        var pergunta = tmpl.name.replace(/\{nome\}/g, cli.nome).replace(/\{empresa\}/g, cli.empresa||"").replace(/\{mes\}/g, String(d.mes).padStart(2,"0")).replace(/\{ano\}/g, d.ano).replace(/\{mesAnterior\}/g, String(mesAnt).padStart(2,"0")).replace(/\{anoMesAnt\}/g, anoMesAnt);
+        try {
+          var sent = await sock.sendMessage(cli.numero+"@s.whatsapp.net", { poll: { name: pergunta, values: tmpl.values, selectableCount: 1 } });
+          if (sent && sent.key && sent.key.id) {
+            var pollEncKey = null;
+            try { if (sent.message && sent.message.messageContextInfo && sent.message.messageContextInfo.messageSecret) pollEncKey = sent.message.messageContextInfo.messageSecret; } catch(e){}
+            enquetesEnviadas[sent.key.id] = { cliente_numero: cli.numero, nome: cli.nome, empresa: cli.empresa, tipo: tipo, pergunta: pergunta, opcoes: tmpl.values, respondeu: false, resposta: null, enviadoEm: new Date().toISOString(), pollEncKey: pollEncKey, pollCreationMessage: sent.message };
+          }
+        } catch(e){ console.log("[testar-enquete] " + e.message); }
+      })();
+    } else {
+      var filtro = tipo === "dia20" ? "nao_pago" : ((tipo === "dia25" || tipo === "dia5") ? "docs_pendentes" : null);
+      enviarEnqueteAutomatica(tipo, filtro);
+    }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end("<h1 style='font-family:sans-serif'>📨 Enquete "+tipo+" disparada</h1><p>Acompanhe em <a href='/admin/enquetes'>/admin/enquetes</a></p>");
+  }
+
+  // ========== TESTE MANUAL DE SCHEDULER (util para debug) ==========
+  if (url.pathname === "/admin/testar-lembrete") {
+    var tipo = url.searchParams.get("tipo");
+    var senha = url.searchParams.get("senha");
+    if (senha !== "adr2026") { res.writeHead(403); return res.end("Senha invalida"); }
+    if (!TEMPLATES_LEMBRETE[tipo]) { res.writeHead(400); return res.end("Tipo invalido. Use: dia5, dia15, dia20, dia25"); }
+    var filtro = tipo === "dia20" ? "nao_pago" : (tipo === "dia25" || tipo === "dia5" ? "docs_pendentes" : null);
+    enviarLembreteAutomatico(tipo, filtro);
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end("<h1 style='font-family:sans-serif'>Disparo de teste iniciado: " + tipo + "</h1><p>Acompanhe em <a href='/admin/clientes'>/admin/clientes</a></p>");
+  }
+
   // ========== ENVIO INDIVIDUAL (form + POST) ==========
   if (url.pathname === "/admin/enviar-um") {
     var html = "<!DOCTYPE html><html><head><meta charset=UTF-8><title>Envio Individual</title>" +
