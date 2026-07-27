@@ -728,20 +728,24 @@ async function startBot() {
   });
 
   sock.ev.on("messages.upsert", async function(ev) {
-    // DEBUG: log TUDO que chega, mesmo tipos ignorados
+    // DEBUG: log APENAS mensagens diretas de pessoas (nao grupo, nao newsletter, nao fromMe, nao protocolo)
     try {
       for (var d = 0; d < (ev.messages || []).length; d++) {
         var m0 = ev.messages[d];
+        var rjid = m0.key.remoteJid || "";
+        if (m0.key.fromMe) continue;
+        if (rjid.endsWith("@g.us") || rjid.endsWith("@newsletter") || rjid.endsWith("@broadcast")) continue;
+        if (m0.message && m0.message.protocolMessage) continue;
         var txt0 = "";
-        if (m0.message) txt0 = m0.message.conversation || (m0.message.extendedTextMessage && m0.message.extendedTextMessage.text) || (m0.message.pollUpdateMessage ? "[VOTO POLL]" : "") || Object.keys(m0.message).join(",");
+        if (m0.message) txt0 = m0.message.conversation || (m0.message.extendedTextMessage && m0.message.extendedTextMessage.text) || (m0.message.pollUpdateMessage ? "[VOTO POLL]" : "") || ("[" + Object.keys(m0.message).join(",") + "]");
         LAST_MESSAGES.push({
-          from: m0.key.remoteJid + (m0.key.fromMe ? " [fromMe]" : ""),
+          from: rjid,
           text: "[ev=" + ev.type + "] " + txt0.substring(0,80),
           hora: new Date().toISOString(),
           pushName: m0.pushName || ""
         });
       }
-      if (LAST_MESSAGES.length > 30) LAST_MESSAGES = LAST_MESSAGES.slice(-30);
+      if (LAST_MESSAGES.length > 100) LAST_MESSAGES = LAST_MESSAGES.slice(-100);
     } catch(e) { console.log("[debug-log] " + e.message); }
 
     if (ev.type !== "notify") return;
