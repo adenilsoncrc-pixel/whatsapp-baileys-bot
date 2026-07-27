@@ -728,6 +728,22 @@ async function startBot() {
   });
 
   sock.ev.on("messages.upsert", async function(ev) {
+    // DEBUG: log TUDO que chega, mesmo tipos ignorados
+    try {
+      for (var d = 0; d < (ev.messages || []).length; d++) {
+        var m0 = ev.messages[d];
+        var txt0 = "";
+        if (m0.message) txt0 = m0.message.conversation || (m0.message.extendedTextMessage && m0.message.extendedTextMessage.text) || (m0.message.pollUpdateMessage ? "[VOTO POLL]" : "") || Object.keys(m0.message).join(",");
+        LAST_MESSAGES.push({
+          from: m0.key.remoteJid + (m0.key.fromMe ? " [fromMe]" : ""),
+          text: "[ev=" + ev.type + "] " + txt0.substring(0,80),
+          hora: new Date().toISOString(),
+          pushName: m0.pushName || ""
+        });
+      }
+      if (LAST_MESSAGES.length > 30) LAST_MESSAGES = LAST_MESSAGES.slice(-30);
+    } catch(e) { console.log("[debug-log] " + e.message); }
+
     if (ev.type !== "notify") return;
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
@@ -816,9 +832,6 @@ async function startBot() {
       // Permitir comandos admin (!) mesmo de números ignorados
       // Aceitar variações do número pessoal (com/sem 9 extra)
       var isAdmin = ADMIN_JIDS.has(from);
-      // Debug: guardar ultimas mensagens
-      LAST_MESSAGES.push({ from: from, text: clean.substring(0,100), hora: new Date().toISOString(), pushName: msg.pushName || "" });
-      if (LAST_MESSAGES.length > 30) LAST_MESSAGES = LAST_MESSAGES.slice(-30);
       // Auto-cadastro de admin: !sou_admin <senha>
       if (clean.startsWith("!sou_admin ") || clean.startsWith("! sou_admin ")) {
         var s = clean.replace(/^!\s*sou_admin\s+/, "").trim();
