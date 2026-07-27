@@ -740,6 +740,20 @@ async function startBot() {
     syncFullHistory: false
   });
 
+  // ========== MONKEY-PATCH GLOBAL: bloqueia envio para contatos protegidos ==========
+  // Interceptamos sock.sendMessage: se destino estiver na blacklist, NAO envia (silenciosamente).
+  // Isso protege Juliana e Gabriella mesmo se qualquer parte do codigo tentar mandar.
+  var _origSendMessage = sock.sendMessage.bind(sock);
+  sock.sendMessage = function(to, content, options) {
+    try {
+      if (isIgnoredJid(to)) {
+        console.log("[BLOQUEIO GLOBAL] Envio para " + to + " CANCELADO (contato protegido)");
+        return Promise.resolve(null);
+      }
+    } catch(e) { /* nao bloqueia caso funcao ainda nao exista */ }
+    return _origSendMessage(to, content, options);
+  };
+
   sock.ev.on("creds.update", auth.saveCreds);
 
   sock.ev.on("connection.update", function(u) {
@@ -1485,7 +1499,16 @@ http.createServer(async function(req, res) {
       }
       try {
         var jid = numero + "@s.whatsapp.net";
-        await sock.sendMessage(jid, { text: mensagem });
+        // Bloqueio critico: nao permite envio para lista negra
+        if (isIgnoredJid(jid) || isIgnoredJid(numero)) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          return res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:#c00'>🚫 BLOQUEADO</h1><p>Numero " + numero + " esta na lista de contatos protegidos (Juliana/Gabriella/Elaine/ALIF).</p><p>Envio recusado por seguranca.</p><p><a href='/admin/enviar-um'>Voltar</a></p></body></html>");
+        }
+        var envResult = await botSend(jid, { text: mensagem });
+        if (!envResult) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          return res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:#c00'>❌ Falha (possivelmente bloqueado)</h1><p><a href='/admin/enviar-um'>Voltar</a></p></body></html>");
+        }
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1 style='color:#0a5'>✅ Enviado!</h1><p>Para: " + numero + "</p><p><a href='/admin/enviar-um'>Enviar outra</a></p></body></html>");
       } catch (e) {
