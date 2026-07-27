@@ -1266,6 +1266,23 @@ http.createServer(async function(req, res) {
     return res.end();
   }
 
+  // ========== VERIFICAR SE NUMERO TEM WHATSAPP ==========
+  if (url.pathname === "/admin/whatsapp-check") {
+    var n = url.searchParams.get("num");
+    if (!n) { res.writeHead(400); return res.end("Use ?num=5537988244336"); }
+    (async function(){
+      try {
+        var check = await sock.onWhatsApp(n);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: true, numero: n, resultado: check }, null, 2));
+      } catch(e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ ok: false, erro: e.message }));
+      }
+    })();
+    return;
+  }
+
   // ========== DEBUG: ver ultimas mensagens recebidas ==========
   if (url.pathname === "/admin/debug-msgs") {
     var linhas = LAST_MESSAGES.slice().reverse().map(function(m){
