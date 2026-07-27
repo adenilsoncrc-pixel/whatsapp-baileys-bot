@@ -89,6 +89,13 @@ async function enviarEnqueteAutomatica(tipoTemplate, filtroPago) {
       .replace(/\{anoMesAnt\}/g, anoMesAnt);
     try {
       var jid = cli.numero + "@s.whatsapp.net";
+      // 1) Envia aviso de que a mensagem eh automatica ANTES da enquete
+      var avisoAuto = "\uD83E\uDD16 *Mensagem automatica do sistema ADR Contabil*\n\nOla " + (cli.nome || "") + "! Este eh um lembrete automatico.\n\nResponda clicando em uma das opcoes da enquete abaixo \u2B07\uFE0F\n\n_Nao precisa digitar nada - basta tocar na op\u00e7\u00e3o desejada._\n_Se precisar falar comigo, envie *0* que chamo o Adenilson._";
+      try {
+        await sock.sendMessage(jid, { text: avisoAuto });
+        await new Promise(function(r){ setTimeout(r, 2000); });
+      } catch(eA) { console.log("[ENQUETE aviso] falha:", eA.message); }
+      // 2) Envia a enquete propriamente dita
       var sent = await sock.sendMessage(jid, {
         poll: { name: pergunta, values: tmpl.values, selectableCount: 1 }
       });
