@@ -642,6 +642,11 @@ function removeAccents(str) {
 // ========== ENVIO SEGURO (rastreia mensagens do bot) ==========
 async function botSend(to, content) {
   try {
+    // SAFETY NET: NUNCA envia para contato bloqueado, mesmo se codigo tentar
+    if (typeof isIgnoredJid === "function" && isIgnoredJid(to)) {
+      console.log("[BLOQUEIO-ENVIO] Tentativa de enviar para bloqueado " + to + " - CANCELADA");
+      return null;
+    }
     var sent = await sock.sendMessage(to, content);
     if (sent && sent.key && sent.key.id) {
       botSentMessages.add(sent.key.id);
@@ -665,13 +670,43 @@ var ADMIN_JIDS = new Set([
 var LAST_MESSAGES = []; // ultimas 30 msgs recebidas para debug
 
 const IGNORED_CONTACTS = new Set([
-  "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
-  "5537841466460@s.whatsapp.net",  // Juliana (restrito)
-  "5537842641280@s.whatsapp.net",  // Gabriella (restrito)
-  "5537915808260@s.whatsapp.net",  // ALIF Mecânico (pessoal)
-  "187939782938841@lid",            // Gabriella (formato @lid)
-  "51174535348326@lid",             // Juliana (formato @lid)
+  // Elaine (Contadora & Perita)
+  "5531921179190@s.whatsapp.net",
+  "553121179190@s.whatsapp.net",
+
+  // Juliana (RESTRITO - ex-esposa) - JID real confirmado: 553784146646
+  "553784146646@s.whatsapp.net",
+  "5537984146646@s.whatsapp.net",
+  "5537841466460@s.whatsapp.net",
+  "51174535348326@lid",
+
+  // Gabriella (RESTRITO - filha) - JID real confirmado: 553784264128
+  "553784264128@s.whatsapp.net",
+  "5537984264128@s.whatsapp.net",
+  "5537842641280@s.whatsapp.net",
+  "187939782938841@lid",
+
+  // ALIF Mecanico (pessoal)
+  "5537915808260@s.whatsapp.net",
+  "553791580826@s.whatsapp.net",
+  "5537991580826@s.whatsapp.net",
 ]);
+
+// Numeros base (so digitos) para verificacao redundante - qualquer variante fica bloqueada
+const IGNORED_NUMBERS_BASE = [
+  "553121179190", "5531921179190",           // Elaine
+  "553784146646", "5537984146646",           // Juliana
+  "553784264128", "5537984264128",           // Gabriella
+  "553791580826", "5537915808260", "5537991580826", // ALIF
+];
+function isIgnoredJid(jid) {
+  if (IGNORED_CONTACTS.has(jid)) return true;
+  var digits = (jid || "").replace(/[^0-9]/g, "");
+  for (var i = 0; i < IGNORED_NUMBERS_BASE.length; i++) {
+    if (digits.indexOf(IGNORED_NUMBERS_BASE[i]) !== -1) return true;
+  }
+  return false;
+}
 
 // Comando admin para adicionar/remover contatos ignorados em tempo real
 // !ignorar 5531999999999 — adiciona
@@ -938,10 +973,10 @@ async function startBot() {
       // Ignorar contatos da lista (parceiros, família, etc.) — exceto comandos admin
       // Suporta tanto @s.whatsapp.net quanto @lid (novo formato Linked ID do WhatsApp)
       var fromBare = from.split("@")[0];
-      var isIgnored = IGNORED_CONTACTS.has(from)
-                   || IGNORED_CONTACTS.has(fromBare)
-                   || IGNORED_CONTACTS.has(fromBare + "@s.whatsapp.net")
-                   || IGNORED_CONTACTS.has(fromBare + "@lid");
+      var isIgnored = isIgnoredJid(from)
+                   || isIgnoredJid(fromBare)
+                   || isIgnoredJid(fromBare + "@s.whatsapp.net")
+                   || isIgnoredJid(fromBare + "@lid");
       // Log para descobrir novos JIDs @lid
       if (from.indexOf("@lid") !== -1) {
         console.log("[LID] JID=" + from + " ignored=" + isIgnored + " msg=" + clean.substring(0, 30));
