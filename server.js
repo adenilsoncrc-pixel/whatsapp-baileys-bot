@@ -9,6 +9,14 @@ const path = require("path");
 const PORT = process.env.PORT || 3000;
 const AUTH_DIR = path.join(__dirname, "auth_info");
 const CLIENTES_FILE = path.join(__dirname, "clientes.json");
+
+// PROTECAO GLOBAL contra crash total - evita exit status 1 no Render
+process.on("uncaughtException", function(err){
+  console.log("[FATAL uncaughtException]", err && err.stack ? err.stack : err);
+});
+process.on("unhandledRejection", function(reason, p){
+  console.log("[FATAL unhandledRejection]", reason && reason.stack ? reason.stack : reason);
+});
 var broadcastStatus = { running: false, sent: 0, failed: 0, total: 0, ultimaMsg: "", iniciadoEm: null, terminadoEm: null, erros: [] };
 var schedulerLog = [];
 var ultimoDisparoAgendado = {};
@@ -823,7 +831,13 @@ async function startBot() {
         }
         continue;
       }
-      if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.endsWith("@g.us")) continue;
+      // Aceita SOMENTE mensagens 1:1 de pessoas fisicas - bloqueia grupos, newsletters, broadcasts, status
+      if (msg.key.remoteJid === "status@broadcast"
+          || msg.key.remoteJid.endsWith("@g.us")
+          || msg.key.remoteJid.endsWith("@newsletter")
+          || msg.key.remoteJid.endsWith("@broadcast")) continue;
+      // JIDs no formato @lid (WhatsApp Privacy) tambem sao bloqueados EXCETO se for admin cadastrado
+      if (msg.key.remoteJid.endsWith("@lid") && !ADMIN_JIDS.has(msg.key.remoteJid)) continue;
 
       // Extrair texto CEDO para detectar comandos admin antes de qualquer filtro
       var text = "";
