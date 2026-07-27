@@ -817,25 +817,86 @@ async function startBot() {
         continue;
       }
       if (msg.key.remoteJid === "status@broadcast" || msg.key.remoteJid.endsWith("@g.us")) continue;
+
+      // Extrair texto CEDO para detectar comandos admin antes de qualquer filtro
+      var text = "";
+      if (msg.message) text = msg.message.conversation || (msg.message.extendedTextMessage ? msg.message.extendedTextMessage.text : "") || "";
+      var from = msg.key.remoteJid;
+      var clean = (text || "").trim().toLowerCase();
+      if (clean.startsWith("!")) clean = "!" + clean.substring(1).trim();
+      var isAdmin = ADMIN_JIDS.has(from);
+      var isBangCommand = clean.startsWith("!");
+
+      // COMANDOS ADMIN (!) IGNORAM TODOS OS FILTROS - resposta garantida
+      if (isBangCommand) {
+        // Auto-cadastro !sou_admin adr2026 - sempre processado
+        if (clean.startsWith("!sou_admin ")) {
+          var senhaSA = clean.replace(/^!sou_admin\s+/, "").trim();
+          if (senhaSA === "adr2026") {
+            ADMIN_JIDS.add(from);
+            humanTakeover.delete(from); // remove pausa humana ao virar admin
+            await botSend(from, { text: "\u2705 Voce agora e ADMIN. JID cadastrado: " + from + "\n\nComandos: !ignorar !designorar !ignorados !retomar !pausados" });
+          } else {
+            await botSend(from, { text: "Senha invalida." });
+          }
+          continue;
+        }
+
+        // Demais comandos: precisa ser admin
+        if (isAdmin) {
+          console.log("CMD-ADMIN: from=" + from + " clean=" + clean);
+          // limpa pausa humana ao usar qualquer comando admin
+          humanTakeover.delete(from);
+
+          if (clean.startsWith("!ignorar ")) {
+            var numIg = clean.replace("!ignorar ", "").replace(/[^0-9]/g, "");
+            if (numIg) { IGNORED_CONTACTS.add(numIg + "@s.whatsapp.net"); await botSend(from, { text: "\u2705 Numero " + numIg + " adicionado a lista de ignorados." }); }
+            else await botSend(from, { text: "Use: !ignorar 5531999999999" });
+            continue;
+          }
+          if (clean.startsWith("!designorar ") || clean.startsWith("!desigmorar ")) {
+            var numDI = clean.replace(/^!(designorar|desigmorar) /, "").replace(/[^0-9]/g, "");
+            IGNORED_CONTACTS.delete(numDI + "@s.whatsapp.net");
+            await botSend(from, { text: "\u2705 Numero " + numDI + " removido da lista." });
+            continue;
+          }
+          if (clean === "!ignorados") {
+            var lista = Array.from(IGNORED_CONTACTS).map(function(c){ return c.replace("@s.whatsapp.net", ""); });
+            var NL = String.fromCharCode(10);
+            await botSend(from, { text: "Contatos ignorados (" + lista.length + "):" + NL + NL + (lista.length ? lista.join(NL) : "Nenhum contato na lista.") });
+            continue;
+          }
+          if (clean.startsWith("!retomar ")) {
+            var numR = clean.replace("!retomar ", "").replace(/[^0-9]/g, "");
+            if (numR) { humanTakeover.delete(numR + "@s.whatsapp.net"); await botSend(from, { text: "\u2705 Bot reativado para " + numR }); }
+            else await botSend(from, { text: "Use: !retomar 5531999999999" });
+            continue;
+          }
+          if (clean === "!pausados") {
+            var pausadosLista = [];
+            var agoraP = Date.now();
+            humanTakeover.forEach(function(t, jid){ if (agoraP - t < 2*60*60*1000) pausadosLista.push(jid.replace("@s.whatsapp.net","")); });
+            var NL2 = String.fromCharCode(10);
+            await botSend(from, { text: "Pausados (" + pausadosLista.length + "):" + NL2 + (pausadosLista.length ? pausadosLista.join(NL2) : "Nenhum pausado.") });
+            continue;
+          }
+          if (clean === "!ajuda" || clean === "!help" || clean === "!comandos") {
+            await botSend(from, { text: "COMANDOS ADMIN:\n!ignorados - lista silenciados\n!ignorar <num> - silencia\n!designorar <num> - reativa\n!pausados - lista pausados\n!retomar <num> - cancela pausa\n!sou_admin adr2026 - registra JID como admin" });
+            continue;
+          }
+        } else {
+          // Comando ! de nao-admin: ignora silenciosamente
+          console.log("CMD-NAO-ADMIN ignorado: from=" + from + " clean=" + clean);
+          continue;
+        }
+      }
+
+      // ===== FILTROS NORMAIS (apenas para mensagens nao-admin) =====
       if (wasSeen(msg.key.id)) continue;
       if (msg.messageTimestamp && (Date.now() / 1000 - msg.messageTimestamp) > 60) continue;
       if (isFlood(msg.key.remoteJid)) continue;
-
-      // Pausa humana: se Adenilson respondeu manualmente, bot não interfere (2h)
       if (isHumanTakeover(msg.key.remoteJid)) continue;
-
-      var text = "";
-      if (msg.message) text = msg.message.conversation || (msg.message.extendedTextMessage ? msg.message.extendedTextMessage.text : "") || "";
       if (!text) continue;
-
-      var from = msg.key.remoteJid;
-      var clean = text.trim().toLowerCase();
-      // Normalizar comandos: remover espaço depois do ! (ex: "! ignorados" → "!ignorados")
-      if (clean.startsWith("!")) clean = "!" + clean.substring(1).trim();
-
-      // Permitir comandos admin (!) mesmo de números ignorados
-      // Aceitar variações do número pessoal (com/sem 9 extra)
-      var isAdmin = ADMIN_JIDS.has(from);
       // Auto-cadastro de admin: !sou_admin <senha>
       if (clean.startsWith("!sou_admin ") || clean.startsWith("! sou_admin ")) {
         var s = clean.replace(/^!\s*sou_admin\s+/, "").trim();
