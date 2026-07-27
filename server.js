@@ -641,6 +641,14 @@ async function botSend(to, content) {
 
 // ========== LISTA DE CONTATOS IGNORADOS (bot NÃO responde) ==========
 // Adicione números no formato: 55DDDNUMERO@s.whatsapp.net
+// JIDs autorizados como admin (dinamico, adicionavel via comando ou web)
+var ADMIN_JIDS = new Set([
+  "553799952181@s.whatsapp.net",
+  "5537999952181@s.whatsapp.net",
+  "5537999521810@s.whatsapp.net"
+]);
+var LAST_MESSAGES = []; // ultimas 30 msgs recebidas para debug
+
 const IGNORED_CONTACTS = new Set([
   "5531921179190@s.whatsapp.net",  // Elaine (Contadora & Perita)
   "5537841466460@s.whatsapp.net",  // Juliana (restrito)
@@ -807,7 +815,22 @@ async function startBot() {
 
       // Permitir comandos admin (!) mesmo de números ignorados
       // Aceitar variações do número pessoal (com/sem 9 extra)
-      var isAdmin = (from === "5537999521810@s.whatsapp.net" || from === "553799952181@s.whatsapp.net" || from === "553799952181@s.whatsapp.net");
+      var isAdmin = ADMIN_JIDS.has(from);
+      // Debug: guardar ultimas mensagens
+      LAST_MESSAGES.push({ from: from, text: clean.substring(0,100), hora: new Date().toISOString(), pushName: msg.pushName || "" });
+      if (LAST_MESSAGES.length > 30) LAST_MESSAGES = LAST_MESSAGES.slice(-30);
+      // Auto-cadastro de admin: !sou_admin <senha>
+      if (clean.startsWith("!sou_admin ") || clean.startsWith("! sou_admin ")) {
+        var s = clean.replace(/^!\s*sou_admin\s+/, "").trim();
+        if (s === "adr2026") {
+          ADMIN_JIDS.add(from);
+          await botSend(from, { text: "\u2705 Voce agora e ADMIN. JID cadastrado: " + from + "\n\nPode usar todos os comandos: !ignorar !designorar !ignorados !retomar !pausados" });
+          continue;
+        } else {
+          await botSend(from, { text: "Senha invalida." });
+          continue;
+        }
+      }
       
       // Log para debug de comandos admin
       if (clean.startsWith("!")) { console.log("CMD: from=" + from + " clean=" + clean + " isAdmin=" + isAdmin); }
@@ -1162,6 +1185,48 @@ http.createServer(async function(req, res) {
       salvarClientes(dados);
     }
     res.writeHead(302, { Location: "/admin/clientes" });
+    return res.end();
+  }
+
+  // ========== DEBUG: ver ultimas mensagens recebidas ==========
+  if (url.pathname === "/admin/debug-msgs") {
+    var linhas = LAST_MESSAGES.slice().reverse().map(function(m){
+      var isAdm = ADMIN_JIDS.has(m.from);
+      var addLink = isAdm
+        ? "<span style='color:#0a5;font-weight:bold'>\u2713 ADMIN</span>"
+        : "<a href='/admin/add-admin?jid=" + encodeURIComponent(m.from) + "&senha=adr2026' style='background:#08a;color:#fff;padding:4px 8px;border-radius:4px;text-decoration:none'>Tornar ADMIN</a>";
+      return "<tr><td><small>"+m.hora.substring(11,19)+"</small></td><td>"+(m.pushName||"-")+"</td><td><code style='background:#f0f0f0;padding:2px 4px'>"+m.from+"</code></td><td>"+m.text+"</td><td>"+addLink+"</td></tr>";
+    }).join("");
+    var admLista = Array.from(ADMIN_JIDS).map(function(j){
+      return "<li><code>"+j+"</code> <a href='/admin/remove-admin?jid="+encodeURIComponent(j)+"&senha=adr2026' style='color:#c00'>[remover]</a></li>";
+    }).join("");
+    var html = "<!DOCTYPE html><html lang=pt-BR><head><meta charset=UTF-8><meta http-equiv=refresh content=10><title>Debug msgs</title>" +
+      "<style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:20px auto;padding:0 12px;background:#f5f5f7}h1{color:#0a5}table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#f0f2f4}code{font-size:12px}</style></head><body>" +
+      "<h1>🔍 Mensagens recebidas (ultimas 30)</h1>" +
+      "<p>Pagina atualiza a cada 10s. Clique em <b>Tornar ADMIN</b> ao lado do seu JID para se cadastrar.</p>" +
+      "<h3>Admins atuais:</h3><ul>" + admLista + "</ul>" +
+      "<table><thead><tr><th>Hora</th><th>Nome</th><th>JID (from)</th><th>Texto</th><th>Acao</th></tr></thead><tbody>" +
+      (linhas || "<tr><td colspan=5 style=text-align:center;color:#999;padding:24px>Nenhuma mensagem recebida ainda. Mande !oi para o bot pra testar.</td></tr>") +
+      "</tbody></table></body></html>";
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end(html);
+  }
+
+  if (url.pathname === "/admin/add-admin") {
+    var jid = url.searchParams.get("jid");
+    var senha = url.searchParams.get("senha");
+    if (senha !== "adr2026") { res.writeHead(403); return res.end("Senha invalida"); }
+    if (jid) ADMIN_JIDS.add(jid);
+    res.writeHead(302, { Location: "/admin/debug-msgs" });
+    return res.end();
+  }
+
+  if (url.pathname === "/admin/remove-admin") {
+    var jid2 = url.searchParams.get("jid");
+    var senha2 = url.searchParams.get("senha");
+    if (senha2 !== "adr2026") { res.writeHead(403); return res.end("Senha invalida"); }
+    if (jid2) ADMIN_JIDS.delete(jid2);
+    res.writeHead(302, { Location: "/admin/debug-msgs" });
     return res.end();
   }
 
