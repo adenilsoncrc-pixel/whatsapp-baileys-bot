@@ -620,6 +620,10 @@ function askAI(userMsg, from) {
 // ========== STATE ==========
 var latestQR = null;
 var connectionStatus = "disconnected";
+var connectionOpenedAt = null;
+var lastMessageEventAt = null;
+var messageEventCount = 0;
+const BOT_REVISION = "v28-diagnostico-lid";
 var sock = null;
 var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
@@ -700,12 +704,25 @@ const IGNORED_NUMBERS_BASE = [
   "553791580826", "5537915808260", "5537991580826", // ALIF
 ];
 function isIgnoredJid(jid) {
+  // Remove o identificador de dispositivo sem alterar a identidade do contato.
+  jid = String(jid || "").replace(/:\d+(?=@)/, "");
   if (IGNORED_CONTACTS.has(jid)) return true;
   var digits = (jid || "").replace(/[^0-9]/g, "");
   for (var i = 0; i < IGNORED_NUMBERS_BASE.length; i++) {
     if (digits.indexOf(IGNORED_NUMBERS_BASE[i]) !== -1) return true;
   }
   return false;
+}
+
+function isAllowedIncomingKey(key) {
+  if (!key || !key.remoteJid) return false;
+  var jid = key.remoteJid;
+  // O bloqueio protegido prevalece inclusive sobre comandos administrativos.
+  if (isIgnoredJid(jid) || (key.remoteJidAlt && isIgnoredJid(key.remoteJidAlt))) {
+    IGNORED_CONTACTS.add(jid);
+    return false;
+  }
+  return /@(s\.whatsapp\.net|lid)$/.test(jid);
 }
 
 // Comando admin para adicionar/remover contatos ignorados em tempo real
@@ -750,7 +767,10 @@ async function startBot() {
         console.log("[BLOQUEIO GLOBAL] Envio para " + to + " CANCELADO (contato protegido)");
         return Promise.resolve(null);
       }
-    } catch(e) { /* nao bloqueia caso funcao ainda nao exista */ }
+    } catch(e) {
+      console.error("[BLOQUEIO GLOBAL] Falha ao verificar destino; envio cancelado.");
+      return Promise.reject(new Error("Não foi possível validar a segurança do destino."));
+    }
     return _origSendMessage(to, content, options);
   };
 
@@ -764,7 +784,7 @@ async function startBot() {
       if (sc !== DisconnectReason.loggedOut) { setTimeout(startBot, 5000); }
       else { if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true }); latestQR = null; setTimeout(startBot, 3000); }
     }
-    if (u.connection === "open") { connectionStatus = "connected"; latestQR = null; console.log("Bot conectado!"); }
+    if (u.connection === "open") { connectionStatus = "connected"; connectionOpenedAt = new Date().toISOString(); latestQR = null; console.log("Bot conectado!"); }
   });
 
   // Receptor de votos de enquete
@@ -792,6 +812,8 @@ async function startBot() {
   });
 
   sock.ev.on("messages.upsert", async function(ev) {
+    lastMessageEventAt = new Date().toISOString();
+    messageEventCount += (ev.messages || []).length;
     // DEBUG: log APENAS mensagens diretas de pessoas (nao grupo, nao newsletter, nao fromMe, nao protocolo)
     try {
       for (var d = 0; d < (ev.messages || []).length; d++) {
@@ -815,6 +837,7 @@ async function startBot() {
     if (ev.type !== "notify") return;
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
+      if (!isAllowedIncomingKey(msg.key)) continue;
       // Voto de enquete chega em messages.upsert como pollUpdateMessage
       try {
         var pollUpdateMsg = msg.message && msg.message.pollUpdateMessage;
@@ -885,8 +908,7 @@ async function startBot() {
           || msg.key.remoteJid.endsWith("@g.us")
           || msg.key.remoteJid.endsWith("@newsletter")
           || msg.key.remoteJid.endsWith("@broadcast")) continue;
-      // JIDs no formato @lid (WhatsApp Privacy) tambem sao bloqueados EXCETO se for admin cadastrado
-      if (msg.key.remoteJid.endsWith("@lid") && !ADMIN_JIDS.has(msg.key.remoteJid)) continue;
+      // Contatos diretos @lid são aceitos; os protegidos já foram barrados acima.
 
       // Extrair texto CEDO para detectar comandos admin antes de qualquer filtro
       var text = "";
@@ -1214,7 +1236,7 @@ http.createServer(async function(req, res) {
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     var stats = getProtocolStats();
-    return res.end(JSON.stringify({ status: connectionStatus, ai: GROQ_API_KEY ? "active" : "disabled", protocolos_total: stats.total, protocolos_hoje: stats.today }));
+    return res.end(JSON.stringify({ status: connectionStatus, ai: GROQ_API_KEY ? "active" : "disabled", protocolos_total: stats.total, protocolos_hoje: stats.today, revision: BOT_REVISION, uptime_seconds: Math.floor(process.uptime()), connected_at: connectionOpenedAt, last_message_event_at: lastMessageEventAt, message_event_count: messageEventCount }));
   }
   if (url.pathname === "/stats") {
     res.writeHead(200, { "Content-Type": "application/json" });

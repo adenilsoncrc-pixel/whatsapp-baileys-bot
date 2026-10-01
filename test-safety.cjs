@@ -1,0 +1,54 @@
+// Testes isolados: não conectam ao WhatsApp e não enviam mensagens.
+const fs = require("node:fs");
+const vm = require("node:vm");
+const assert = require("node:assert/strict");
+const code = fs.readFileSync(__dirname + "/server.js", "utf8");
+const context = vm.createContext({});
+const start = code.indexOf("const IGNORED_CONTACTS =");
+const end = code.indexOf("// Comando admin para", start);
+assert(start >= 0 && end > start);
+vm.runInContext(code.slice(start, end), context);
+let count = 0;
+for (const jid of [
+  "553784264128@s.whatsapp.net", "5537984264128@s.whatsapp.net",
+  "187939782938841@lid", "187939782938841:12@lid",
+  "553784146646@s.whatsapp.net", "5537984146646@s.whatsapp.net",
+  "51174535348326@lid", "51174535348326:8@lid"
+]) {
+  assert.equal(context.isIgnoredJid(jid), true);
+  assert.equal(context.isAllowedIncomingKey({remoteJid: jid}), false);
+  count += 2;
+}
+for (const jid of ["553788244336@s.whatsapp.net", "242884729114795@lid"]) {
+  assert.equal(context.isAllowedIncomingKey({remoteJid: jid}), true);
+  count++;
+}
+for (const jid of ["status@broadcast", "123@g.us", "123@newsletter", "123@broadcast", ""]) {
+  assert.equal(context.isAllowedIncomingKey({remoteJid: jid}), false);
+  count++;
+}
+assert.equal(context.isAllowedIncomingKey({
+  remoteJid: "999000111@lid",
+  remoteJidAlt: "553784264128@s.whatsapp.net"
+}), false);
+assert.equal(context.isIgnoredJid("999000111@lid"), true);
+count += 2;
+// O interceptador de saída deve impedir a chamada real para contatos protegidos.
+const guardStart = code.indexOf("  var _origSendMessage =");
+const guardEnd = code.indexOf('  sock.ev.on("creds.update"', guardStart);
+assert(guardStart > 0 && guardEnd > guardStart);
+let sends = 0;
+context.console = {log() {}, error() {}};
+context.sock = {sendMessage: async () => { sends++; return {key: {id: "simulado"}}; }};
+vm.runInContext(code.slice(guardStart, guardEnd), context);
+(async () => {
+  await context.sock.sendMessage("187939782938841@lid", {text: "SIMULAÇÃO"});
+  await context.sock.sendMessage("553784146646@s.whatsapp.net", {text: "SIMULAÇÃO"});
+  assert.equal(sends, 0);
+  await context.sock.sendMessage("553788244336@s.whatsapp.net", {text: "SIMULAÇÃO"});
+  assert.equal(sends, 1);
+  context.isIgnoredJid = () => { throw new Error("falha simulada"); };
+  await assert.rejects(context.sock.sendMessage("553788244336@s.whatsapp.net", {}));
+  assert.equal(sends, 1);
+  console.log(`${count + 4} verificações aprovadas; nenhum acesso à rede.`);
+})().catch(error => { console.error(error); process.exitCode = 1; });
