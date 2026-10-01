@@ -1,6 +1,6 @@
 const http = require("http");
 const https = require("https");
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, decryptPollVote } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, decryptPollVote, normalizeMessageContent } = require("@whiskeysockets/baileys");
 const QRCode = require("qrcode");
 const pino = require("pino");
 const fs = require("fs");
@@ -623,7 +623,7 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v30-recuperacao-sincronizacao";
+const BOT_REVISION = "v31-leitura-mensagens";
 var rawMessageCount = 0;
 var lastRawMessageAt = null;
 var pendingNotificationsReceived = false;
@@ -859,6 +859,15 @@ async function startBot() {
         if (m0.message && m0.message.protocolMessage) continue;
         var txt0 = "";
         if (m0.message) txt0 = m0.message.conversation || (m0.message.extendedTextMessage && m0.message.extendedTextMessage.text) || (m0.message.pollUpdateMessage ? "[VOTO POLL]" : "") || ("[" + Object.keys(m0.message).join(",") + "]");
+        else {
+          var reason = (m0.messageStubParameters || []).join(" ");
+          var safeReason = /absent from node/i.test(reason) ? "conteudo ausente no pacote"
+            : /session/i.test(reason) ? "falha de sessao criptografica"
+            : /mac/i.test(reason) ? "falha de autenticacao criptografica"
+            : /decrypt|cipher|key/i.test(reason) ? "falha de decodificacao"
+            : "sem conteudo";
+          txt0 = "[stub=" + (m0.messageStubType || 0) + "; " + safeReason + "]";
+        }
         LAST_MESSAGES.push({
           from: rjid,
           text: "[ev=" + ev.type + "] " + txt0.substring(0,80),
@@ -873,6 +882,9 @@ async function startBot() {
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
       if (!isAllowedIncomingKey(msg.key)) continue;
+      // Stubs ainda não são mensagens completas: não registrar ID nem ativar pausa.
+      if (!msg.message) continue;
+      msg.message = normalizeMessageContent(msg.message) || msg.message;
       // Descarta histórico antes de comandos e pausa humana, inclusive após recuperar buffer.
       if (msg.messageTimestamp && (Date.now() / 1000 - Number(msg.messageTimestamp)) > 60) continue;
       // Voto de enquete chega em messages.upsert como pollUpdateMessage
