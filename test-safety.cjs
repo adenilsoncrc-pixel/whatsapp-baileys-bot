@@ -71,5 +71,34 @@ vm.runInContext(code.slice(guardStart, guardEnd), context);
   context.connectionStatus = "disconnected";
   assert.equal(context.recoverStartupBuffer(socket), false);
   assert.equal(flushes, 1);
-  console.log(`${count + 10} verificações aprovadas; nenhum acesso à rede.`);
+  const repairStart = code.indexOf("async function recoverOwnAndAdminKeys(");
+  const repairEnd = code.indexOf("var lastAdminPacket =", repairStart);
+  vm.runInContext(code.slice(repairStart, repairEnd), context);
+  assert.equal(context.isHumanMessage({protocolMessage: {type: 1}}), false);
+  assert.equal(context.isHumanMessage({senderKeyDistributionMessage: {}}), false);
+  assert.equal(context.isHumanMessage({conversation: "oi"}), true);
+  assert.equal(context.isHumanMessage({imageMessage: {}}), true);
+  let repaired = [];
+  let markerWrites = 0;
+  context.fs = {existsSync: () => false, writeFileSync: () => {markerWrites++;}};
+  context.path = {join: (...parts) => parts.join("/")};
+  context.AUTH_DIR = "/simulado";
+  context.recordConnectionDiagnostic = () => {};
+  context.isIgnoredJid = () => false;
+  context.sock = {
+    user: {id: "553788075561:5@s.whatsapp.net", lid: "186547727020198:5@lid"},
+    assertSessions: async (targets, force) => {assert.equal(force, true); repaired = Array.from(targets);}
+  };
+  context.connectionStatus = "connected";
+  await context.recoverOwnAndAdminKeys(context.sock);
+  assert.deepEqual(repaired.sort(), [
+    "186547727020198@lid", "553788075561@s.whatsapp.net", "74526692012130@lid"
+  ].sort());
+  assert.equal(markerWrites, 1);
+  assert.equal(context.keyRecoveryStatus, "keys_refreshed");
+  context.fs.existsSync = () => true;
+  await context.recoverOwnAndAdminKeys(context.sock);
+  assert.equal(markerWrites, 1);
+  assert.equal(context.keyRecoveryStatus, "already_attempted");
+  console.log(`${count + 20} verificações aprovadas; nenhum acesso à rede.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

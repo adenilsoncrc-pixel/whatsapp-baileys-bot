@@ -625,7 +625,42 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v33-diagnostico-protocolo";
+const BOT_REVISION = "v34-recuperacao-chaves";
+var keyRecoveryStatus = "pending";
+
+async function recoverOwnAndAdminKeys(socket) {
+  if (socket !== sock || connectionStatus !== "connected") return;
+  var marker = path.join(AUTH_DIR, "recovery-v34.json");
+  if (fs.existsSync(marker)) { keyRecoveryStatus = "already_attempted"; return; }
+  var own = socket.user || {};
+  var normalize = function(jid) { return String(jid || "").replace(/:\d+(?=@)/, ""); };
+  var targets = Array.from(new Set([
+    normalize(own.id), normalize(own.lid), "74526692012130@lid"
+  ].filter(function(jid) { return jid && !isIgnoredJid(jid); })));
+  if (!targets.length || typeof socket.assertSessions !== "function") {
+    keyRecoveryStatus = "unavailable";
+    return;
+  }
+  keyRecoveryStatus = "refreshing";
+  try {
+    // Solicita novos conjuntos de chaves; NÃO apaga a credencial ou conversas.
+    await socket.assertSessions(targets, true);
+    fs.writeFileSync(marker, JSON.stringify({ at: new Date().toISOString() }));
+    keyRecoveryStatus = "keys_refreshed";
+    recordConnectionDiagnostic("chaves_do_aparelho_e_admin_renovadas");
+  } catch (error) {
+    keyRecoveryStatus = "refresh_failed";
+    console.error("[RECUPERACAO] Não foi possível renovar as sessões:", error.message);
+  }
+}
+
+function isHumanMessage(message) {
+  return ["conversation", "extendedTextMessage", "imageMessage", "videoMessage",
+    "audioMessage", "documentMessage", "stickerMessage", "contactMessage",
+    "contactsArrayMessage", "locationMessage", "liveLocationMessage",
+    "reactionMessage", "pollCreationMessage", "pollCreationMessageV2",
+    "pollCreationMessageV3"].some(function(key) { return !!message[key]; });
+}
 var lastAdminPacket = null;
 var connectionDiagnostics = [];
 
@@ -889,6 +924,7 @@ async function startBot() {
       connectionOpenedAt = new Date().toISOString();
       latestQR = null;
       console.log("Bot conectado!");
+      setTimeout(function() { recoverOwnAndAdminKeys(thisSocket); }, 3000);
       setTimeout(function() {
         try { recoverStartupBuffer(thisSocket); }
         catch (error) { console.error("[SINCRONIZACAO] Falha na recuperação:", error.message); }
@@ -1016,9 +1052,11 @@ async function startBot() {
       } catch(err) { console.log("[poll-upsert] erro:", err.message); }
       // Detectar mensagem manual do Adenilson (fromMe) para ativar pausa humana
       if (msg.key.fromMe) {
+        // Sincronização, distribuição de chaves e solicitações internas não são respostas humanas.
+        if (!isHumanMessage(msg.message)) continue;
         if (msg.key.remoteJid !== "status@broadcast" && !msg.key.remoteJid.endsWith("@g.us")) {
           // Só ativar pausa se NÃO foi o bot que enviou
-          var isAdminJid = (msg.key.remoteJid === "5537999521810@s.whatsapp.net" || msg.key.remoteJid === "553799952181@s.whatsapp.net");
+          var isAdminJid = ADMIN_JIDS.has(msg.key.remoteJid.replace(/:\d+(?=@)/, ""));
           if (!botSentMessages.has(msg.key.id) && !isAdminJid) {
             humanTakeover.set(msg.key.remoteJid, Date.now());
             console.log("PAUSA HUMANA ativada: " + msg.key.remoteJid + " (2h)");
@@ -1372,6 +1410,7 @@ http.createServer(async function(req, res) {
       event_buffering: !!(sock && sock.ev && sock.ev.isBuffering && sock.ev.isBuffering()),
       startup_buffer_recoveries: startupBufferRecoveries,
       pending_notifications_received: pendingNotificationsReceived,
+      key_recovery_status: keyRecoveryStatus,
       last_admin_packet: lastAdminPacket,
       connection_diagnostics: connectionDiagnostics,
       baileys_version: require("@whiskeysockets/baileys/package.json").version
