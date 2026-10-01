@@ -1,6 +1,8 @@
 const http = require("http");
 const https = require("https");
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, decryptPollVote, normalizeMessageContent } = require("@whiskeysockets/baileys");
+// Baileys 7 é ESM: importação dinâmica preserva este aplicativo CommonJS.
+var makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion;
+var getAggregateVotesInPollMessage, decryptPollVote, normalizeMessageContent;
 const QRCode = require("qrcode");
 const pino = require("pino");
 const fs = require("fs");
@@ -623,7 +625,7 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v31-leitura-mensagens";
+const BOT_REVISION = "v32-compatibilidade-lid";
 var rawMessageCount = 0;
 var lastRawMessageAt = null;
 var pendingNotificationsReceived = false;
@@ -644,6 +646,23 @@ var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
 var humanTakeover = new Map(); // Pausa humana: quando Adenilson responde, bot para por 2h
 var botSentMessages = new Set(); // IDs de mensagens enviadas pelo bot (para distinguir de manuais)
+var sentMessageCache = new Map();
+
+function cacheSentMessage(sent) {
+  if (!sent || !sent.key || !sent.key.id || !sent.message) return;
+  sentMessageCache.set(sent.key.id, { message: sent.message, at: Date.now() });
+  while (sentMessageCache.size > 500) sentMessageCache.delete(sentMessageCache.keys().next().value);
+}
+
+async function getCachedMessage(key) {
+  var entry = key && sentMessageCache.get(key.id);
+  if (!entry) return undefined;
+  if (Date.now() - entry.at > 24 * 60 * 60 * 1000) {
+    sentMessageCache.delete(key.id);
+    return undefined;
+  }
+  return entry.message;
+}
 
 // ========== PAUSA HUMANA ==========
 function isHumanTakeover(jid) {
@@ -684,7 +703,8 @@ async function botSend(to, content) {
 var ADMIN_JIDS = new Set([
   "553799952181@s.whatsapp.net",
   "5537999952181@s.whatsapp.net",
-  "5537999521810@s.whatsapp.net"
+  "5537999521810@s.whatsapp.net",
+  "74526692012130@lid"
 ]);
 var LAST_MESSAGES = []; // ultimas 30 msgs recebidas para debug
 
@@ -762,6 +782,13 @@ function isFlood(from) {
 
 // ========== BOT ==========
 async function startBot() {
+  if (!makeWASocket) {
+    ({
+      default: makeWASocket, useMultiFileAuthState, DisconnectReason,
+      fetchLatestBaileysVersion, getAggregateVotesInPollMessage,
+      decryptPollVote, normalizeMessageContent
+    } = await import("@whiskeysockets/baileys"));
+  }
   pendingNotificationsReceived = false;
   var auth = await useMultiFileAuthState(AUTH_DIR);
   var ver = await fetchLatestBaileysVersion();
@@ -771,6 +798,7 @@ async function startBot() {
     logger: pino({ level: "silent" }), browser: ["Ubuntu", "Chrome", "120.0.0.0"],
     connectTimeoutMs: 60000, defaultQueryTimeoutMs: 0, keepAliveIntervalMs: 30000, markOnlineOnConnect: true,
     syncFullHistory: false,
+    getMessage: getCachedMessage,
     // Este bot só atende mensagens novas; não deve aguardar importação de histórico.
     shouldSyncHistoryMessage: function() { return false; }
   });
@@ -795,7 +823,10 @@ async function startBot() {
       console.error("[BLOQUEIO GLOBAL] Falha ao verificar destino; envio cancelado.");
       return Promise.reject(new Error("Não foi possível validar a segurança do destino."));
     }
-    return _origSendMessage(to, content, options);
+    return _origSendMessage(to, content, options).then(function(sent) {
+      cacheSentMessage(sent);
+      return sent;
+    });
   };
 
   sock.ev.on("creds.update", auth.saveCreds);
@@ -1713,7 +1744,10 @@ http.createServer(async function(req, res) {
   res.writeHead(200); res.end("OK");
 }).listen(PORT, function() {
   console.log("Porta " + PORT + " | IA: " + (GROQ_API_KEY ? "ON" : "OFF"));
-  startBot();
+  startBot().catch(function(error) {
+    connectionStatus = "startup_error";
+    console.error("[INICIALIZACAO]", error && error.stack || error);
+  });
 
   // ========== KEEP ALIVE (impedir Render de dormir) ==========
   setInterval(function() {

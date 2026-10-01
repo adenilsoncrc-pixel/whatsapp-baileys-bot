@@ -39,6 +39,7 @@ const guardEnd = code.indexOf('  sock.ev.on("creds.update"', guardStart);
 assert(guardStart > 0 && guardEnd > guardStart);
 let sends = 0;
 context.console = {log() {}, error() {}};
+context.cacheSentMessage = () => {};
 context.sock = {sendMessage: async () => { sends++; return {key: {id: "simulado"}}; }};
 vm.runInContext(code.slice(guardStart, guardEnd), context);
 (async () => {
