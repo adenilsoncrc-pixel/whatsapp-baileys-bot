@@ -623,7 +623,10 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v28-diagnostico-lid";
+const BOT_REVISION = "v29-diagnostico-sessao";
+var rawMessageCount = 0;
+var lastRawMessageAt = null;
+var pendingNotificationsReceived = false;
 var sock = null;
 var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
@@ -754,8 +757,16 @@ async function startBot() {
     version: ver.version, auth: auth.state, printQRInTerminal: false,
     logger: pino({ level: "silent" }), browser: ["Ubuntu", "Chrome", "120.0.0.0"],
     connectTimeoutMs: 60000, defaultQueryTimeoutMs: 0, keepAliveIntervalMs: 30000, markOnlineOnConnect: true,
-    syncFullHistory: false
+    syncFullHistory: false,
+    // Este bot só atende mensagens novas; não deve aguardar importação de histórico.
+    shouldSyncHistoryMessage: function() { return false; }
   });
+  if (sock.ws && typeof sock.ws.on === "function") {
+    sock.ws.on("CB:message", function() {
+      rawMessageCount++;
+      lastRawMessageAt = new Date().toISOString();
+    });
+  }
 
   // ========== MONKEY-PATCH GLOBAL: bloqueia envio para contatos protegidos ==========
   // Interceptamos sock.sendMessage: se destino estiver na blacklist, NAO envia (silenciosamente).
@@ -777,6 +788,7 @@ async function startBot() {
   sock.ev.on("creds.update", auth.saveCreds);
 
   sock.ev.on("connection.update", function(u) {
+    if (u.receivedPendingNotifications) pendingNotificationsReceived = true;
     if (u.qr) { latestQR = u.qr; connectionStatus = "waiting_qr"; }
     if (u.connection === "close") {
       connectionStatus = "disconnected";
@@ -1236,7 +1248,20 @@ http.createServer(async function(req, res) {
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     var stats = getProtocolStats();
-    return res.end(JSON.stringify({ status: connectionStatus, ai: GROQ_API_KEY ? "active" : "disabled", protocolos_total: stats.total, protocolos_hoje: stats.today, revision: BOT_REVISION, uptime_seconds: Math.floor(process.uptime()), connected_at: connectionOpenedAt, last_message_event_at: lastMessageEventAt, message_event_count: messageEventCount }));
+    var connectedDigits = sock && sock.user && sock.user.id ? sock.user.id.split("@")[0].split(":")[0] : "";
+    return res.end(JSON.stringify({
+      status: connectionStatus, ai: GROQ_API_KEY ? "active" : "disabled",
+      protocolos_total: stats.total, protocolos_hoje: stats.today,
+      revision: BOT_REVISION, uptime_seconds: Math.floor(process.uptime()),
+      connected_at: connectionOpenedAt, last_message_event_at: lastMessageEventAt,
+      message_event_count: messageEventCount, raw_message_count: rawMessageCount,
+      last_raw_message_at: lastRawMessageAt,
+      connected_number_last4: connectedDigits.slice(-4),
+      expected_bot_connected: ["5537988075561", "553788075561"].includes(connectedDigits),
+      event_buffering: !!(sock && sock.ev && sock.ev.isBuffering && sock.ev.isBuffering()),
+      pending_notifications_received: pendingNotificationsReceived,
+      baileys_version: require("@whiskeysockets/baileys/package.json").version
+    }));
   }
   if (url.pathname === "/stats") {
     res.writeHead(200, { "Content-Type": "application/json" });
