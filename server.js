@@ -623,10 +623,22 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v29-diagnostico-sessao";
+const BOT_REVISION = "v30-recuperacao-sincronizacao";
 var rawMessageCount = 0;
 var lastRawMessageAt = null;
 var pendingNotificationsReceived = false;
+var startupBufferRecoveries = 0;
+
+function recoverStartupBuffer(socket) {
+  if (socket !== sock || connectionStatus !== "connected" || pendingNotificationsReceived) return false;
+  if (!socket.ev || !socket.ev.isBuffering || !socket.ev.isBuffering()) return false;
+  // O servidor não enviou o fim do lote offline: libera somente o buffer de eventos.
+  // Não apaga credenciais nem altera mensagens armazenadas no telefone.
+  socket.ev.flush();
+  startupBufferRecoveries++;
+  console.log("[SINCRONIZACAO] Buffer inicial liberado após espera de 45 segundos.");
+  return true;
+}
 var sock = null;
 var processed = new Set();
 var lastResponse = new Map(); // Anti-flood: rastreia última resposta por remetente
@@ -750,6 +762,7 @@ function isFlood(from) {
 
 // ========== BOT ==========
 async function startBot() {
+  pendingNotificationsReceived = false;
   var auth = await useMultiFileAuthState(AUTH_DIR);
   var ver = await fetchLatestBaileysVersion();
 
@@ -787,6 +800,7 @@ async function startBot() {
 
   sock.ev.on("creds.update", auth.saveCreds);
 
+  var thisSocket = sock;
   sock.ev.on("connection.update", function(u) {
     if (u.receivedPendingNotifications) pendingNotificationsReceived = true;
     if (u.qr) { latestQR = u.qr; connectionStatus = "waiting_qr"; }
@@ -796,7 +810,16 @@ async function startBot() {
       if (sc !== DisconnectReason.loggedOut) { setTimeout(startBot, 5000); }
       else { if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true }); latestQR = null; setTimeout(startBot, 3000); }
     }
-    if (u.connection === "open") { connectionStatus = "connected"; connectionOpenedAt = new Date().toISOString(); latestQR = null; console.log("Bot conectado!"); }
+    if (u.connection === "open") {
+      connectionStatus = "connected";
+      connectionOpenedAt = new Date().toISOString();
+      latestQR = null;
+      console.log("Bot conectado!");
+      setTimeout(function() {
+        try { recoverStartupBuffer(thisSocket); }
+        catch (error) { console.error("[SINCRONIZACAO] Falha na recuperação:", error.message); }
+      }, 45000);
+    }
   });
 
   // Receptor de votos de enquete
@@ -850,6 +873,8 @@ async function startBot() {
     for (var i = 0; i < ev.messages.length; i++) {
       var msg = ev.messages[i];
       if (!isAllowedIncomingKey(msg.key)) continue;
+      // Descarta histórico antes de comandos e pausa humana, inclusive após recuperar buffer.
+      if (msg.messageTimestamp && (Date.now() / 1000 - Number(msg.messageTimestamp)) > 60) continue;
       // Voto de enquete chega em messages.upsert como pollUpdateMessage
       try {
         var pollUpdateMsg = msg.message && msg.message.pollUpdateMessage;
@@ -1259,6 +1284,7 @@ http.createServer(async function(req, res) {
       connected_number_last4: connectedDigits.slice(-4),
       expected_bot_connected: ["5537988075561", "553788075561"].includes(connectedDigits),
       event_buffering: !!(sock && sock.ev && sock.ev.isBuffering && sock.ev.isBuffering()),
+      startup_buffer_recoveries: startupBufferRecoveries,
       pending_notifications_received: pendingNotificationsReceived,
       baileys_version: require("@whiskeysockets/baileys/package.json").version
     }));
