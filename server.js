@@ -625,7 +625,31 @@ var connectionStatus = "disconnected";
 var connectionOpenedAt = null;
 var lastMessageEventAt = null;
 var messageEventCount = 0;
-const BOT_REVISION = "v32-compatibilidade-lid";
+const BOT_REVISION = "v33-diagnostico-protocolo";
+var lastAdminPacket = null;
+var connectionDiagnostics = [];
+
+function recordConnectionDiagnostic(type) {
+  connectionDiagnostics.push({ at: new Date().toISOString(), type: type });
+  if (connectionDiagnostics.length > 20) connectionDiagnostics.shift();
+}
+
+function makeDiagnosticLogger() {
+  return pino({ level: "debug" }, {
+    write: function(line) {
+      try {
+        var entry = JSON.parse(line);
+        var message = entry.msg || "";
+        if (/PDO message without response/.test(message)) recordConnectionDiagnostic("telefone_nao_respondeu_recuperacao");
+        else if (/received placeholder resend/.test(message)) recordConnectionDiagnostic("conteudo_recuperado_do_telefone");
+        else if (/requested placeholder resend/.test(message)) recordConnectionDiagnostic("recuperacao_solicitada_ao_telefone");
+        else if (/failed to request placeholder|failed to send.*phone request/.test(message)) recordConnectionDiagnostic("falha_ao_solicitar_recuperacao");
+        else if (/failed to decrypt/.test(message)) recordConnectionDiagnostic("falha_de_decodificacao");
+        else if (/skipping placeholder resend for excluded/.test(message)) recordConnectionDiagnostic("pacote_nao_elegivel_para_recuperacao");
+      } catch (_) {}
+    }
+  });
+}
 var rawMessageCount = 0;
 var lastRawMessageAt = null;
 var pendingNotificationsReceived = false;
@@ -655,6 +679,7 @@ function cacheSentMessage(sent) {
 }
 
 async function getCachedMessage(key) {
+  if (key && key.remoteJid && isIgnoredJid(key.remoteJid)) return undefined;
   var entry = key && sentMessageCache.get(key.id);
   if (!entry) return undefined;
   if (Date.now() - entry.at > 24 * 60 * 60 * 1000) {
@@ -795,7 +820,7 @@ async function startBot() {
 
   sock = makeWASocket({
     version: ver.version, auth: auth.state, printQRInTerminal: false,
-    logger: pino({ level: "silent" }), browser: ["Ubuntu", "Chrome", "120.0.0.0"],
+    logger: makeDiagnosticLogger(), browser: ["Ubuntu", "Chrome", "120.0.0.0"],
     connectTimeoutMs: 60000, defaultQueryTimeoutMs: 0, keepAliveIntervalMs: 30000, markOnlineOnConnect: true,
     syncFullHistory: false,
     getMessage: getCachedMessage,
@@ -803,9 +828,27 @@ async function startBot() {
     shouldSyncHistoryMessage: function() { return false; }
   });
   if (sock.ws && typeof sock.ws.on === "function") {
-    sock.ws.on("CB:message", function() {
+    sock.ws.on("CB:message", function(node) {
       rawMessageCount++;
       lastRawMessageAt = new Date().toISOString();
+      var from = String(node && node.attrs && node.attrs.from || "").replace(/:\d+(?=@)/, "");
+      if (ADMIN_JIDS.has(from)) {
+        var safeToken = function(value) { return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60); };
+        lastAdminPacket = {
+          at: lastRawMessageAt,
+          type: safeToken(node.attrs.type),
+          category: safeToken(node.attrs.category),
+          children: (Array.isArray(node.content) ? node.content : []).map(function(child) {
+            return {
+              tag: safeToken(child.tag),
+              type: safeToken(child.attrs && child.attrs.type),
+              reason: safeToken(child.attrs && child.attrs.reason),
+              bytes: child.content instanceof Uint8Array ? child.content.byteLength : null,
+              nested_tags: Array.isArray(child.content) ? child.content.map(function(n) { return safeToken(n.tag); }) : []
+            };
+          })
+        };
+      }
     });
   }
 
@@ -1329,6 +1372,8 @@ http.createServer(async function(req, res) {
       event_buffering: !!(sock && sock.ev && sock.ev.isBuffering && sock.ev.isBuffering()),
       startup_buffer_recoveries: startupBufferRecoveries,
       pending_notifications_received: pendingNotificationsReceived,
+      last_admin_packet: lastAdminPacket,
+      connection_diagnostics: connectionDiagnostics,
       baileys_version: require("@whiskeysockets/baileys/package.json").version
     }));
   }
